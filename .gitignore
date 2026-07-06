@@ -1,0 +1,39 @@
+# --- Secrets / environment ---
+infra/.env
+**/*.pem
+**/*.key
+**/certs/
+
+# --- Vendored Wazuh stack (cloned by bootstrap, pinned by tag) ---
+infra/wazuh-docker/
+
+# --- Generator output (regenerated; can be large) ---
+generator/output/*.log
+generator/output/*.json
+generator/output/*.jsonl
+generator/ground_truth/*.jsonl
+!**/.gitkeep
+
+# --- Validation reports (regenerated) ---
+validation/reports/
+
+# --- Node / dashboard ---
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.vite/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# --- Local tool/editor settings (machine-specific) ---
+.claude/settings.local.json
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

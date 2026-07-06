@@ -1,0 +1,9 @@
+<!--
+  Custom detection rules (detection-as-code). One <group> per ATT&CK tactic is
+  added in Phase 3+. Custom rule IDs use the 100000+ range. Every rule carries a
+  <mitre><id>Txxxx</id></mitre> block and has a matching test in detections/tests/.
+
+  Phase 0: empty placeholder so the manager bind-mount resolves to a file.
+-->
+<group name="detection-lab,">
+</group>
