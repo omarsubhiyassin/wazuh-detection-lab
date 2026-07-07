@@ -13,6 +13,9 @@
 100500	lateral_movement_psexec.log	Remote command execution via PsExec service (T1021.002)
 100600	log_clearing.log	Security audit log cleared, event 1102 (T1070.001)
 100601	log_clearing.log	Event log cleared via wevtutil command (T1070.001)
+100700	credential_dumping.log	Suspicious process accessed LSASS memory (T1003.001)
+100701	credential_dumping.log	LSASS-dump tooling on the command line (T1003.001)
 NOALERT	benign_process.log	Benign process creation must not alert
+NOALERT	benign_lsass.log	Legit process accessing LSASS (allow-listed) must not alert
 NOALERT	benign_dns.log	Benign DNS lookup must not alert
 NOALERT	benign_http.log	Legit script download from a domain must not alert

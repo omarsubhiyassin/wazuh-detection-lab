@@ -74,6 +74,16 @@ Levels: Wazuh 0–15 (0 = log-only, 12+ = high). Tests live in
 - **Test:** `exec_to_persistence.log` (PowerShell → schtasks → 4698, all one host) → 100420.
 - **Limitations / evasions:** persistence via a mechanism other than a scheduled task (run key, service, WMI) isn't chained here; a dwell time longer than the timeframe between execution and persistence evades it. Validated to fire only for the dedicated kill-chain host, not for independent same-host scenarios.
 
+## 100700 / 100701 — LSASS credential dumping
+- **ATT&CK:** T1003.001 (Credential Access / LSASS Memory) · **Level:** 13 each
+- **Hypothesis:** Reading `lsass.exe` memory harvests credentials; detect both the memory access and the tooling.
+- **Data source:** Sysmon 10 (ProcessAccess) → `win.eventdata.sourceImage` / `targetImage` / `grantedAccess`; Sysmon 1 → `commandLine`.
+- **Logic:**
+  - **100700** — Sysmon 10 where `targetImage` is `lsass.exe`, `grantedAccess` is a memory-read mask (`0x1010/0x1410/0x1438/0x143a/0x1fffff`), and `sourceImage` is **not** an allow-listed system/AV process (`negate`). The allowlist is the discriminator — legit processes read LSASS with the *same* masks, so target+mask alone would be a flood of false positives. Verified: benign `MsMpEng.exe` reading LSASS at `0x1410` does **not** fire (1 alert on the attack vs. 0 on ~27 benign accesses in a run).
+  - **100701** — Sysmon 1 whose command line matches known dump tooling (`-ma lsass`, `procdump…lsass`, `comsvcs.dll…MiniDump`, `rundll32…MiniDump`, `sekurlsa`, `nanodump`, …).
+- **Test:** `credential_dumping.log` (procdump + Sysmon 10) → 100700 and 100701; `benign_lsass.log` → no alert.
+- **Limitations / evasions:** an attacker abusing an **allow-listed** LOLBin (e.g. a signed process) to touch LSASS evades 100700; direct syscalls / handle duplication that don't surface as a Sysmon-10 open evade the access path (100701's command-line net still helps). Mask list is finite — an unusual read mask slips through.
+
 ## 100600 / 100601 — Windows event log cleared (indicator removal)
 - **ATT&CK:** T1070.001 (Defense Evasion / Clear Windows Event Logs) · **Level:** 12 each
 - **Hypothesis:** Clearing the Security event log is anti-forensics; detect both the *effect* the OS records and the *command* that did it.

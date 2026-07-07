@@ -26,6 +26,7 @@ export interface TechDef {
 
 export const TECHNIQUES: Record<string, TechDef> = {
   T1110: { name: "Brute Force", tactics: ["Credential Access"] },
+  "T1003.001": { name: "LSASS Memory", tactics: ["Credential Access"] },
   T1078: { name: "Valid Accounts", tactics: ["Initial Access"] },
   "T1059.001": { name: "PowerShell", tactics: ["Execution"] },
   "T1053.005": { name: "Scheduled Task", tactics: ["Persistence"] },

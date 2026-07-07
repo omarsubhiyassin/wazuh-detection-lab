@@ -113,6 +113,31 @@ def sysmon_network_connection(ts: float, *, computer: str, record_id: int, proce
     return _event(sysm, ed)
 
 
+def sysmon_process_access(ts: float, *, computer: str, record_id: int, source_image: str,
+                          target_image: str, granted_access: str, source_process_id: int,
+                          target_process_id: int, user: str, source_process_guid: str,
+                          target_process_guid: str,
+                          call_trace: str = r"C:\Windows\SYSTEM32\ntdll.dll+9d1e4|C:\Windows\System32\KERNELBASE.dll+2c0a6") -> str:
+    """Sysmon Event ID 10 -- process accessed another process's memory."""
+    ed = {
+        "utcTime": _utc(ts),
+        "sourceProcessGUID": source_process_guid,
+        "sourceProcessId": str(source_process_id),
+        "sourceImage": source_image,
+        "targetProcessGUID": target_process_guid,
+        "targetProcessId": str(target_process_id),
+        "targetImage": target_image,
+        "grantedAccess": granted_access,
+        "callTrace": call_trace,
+        "sourceUser": user,
+        "targetUser": "NT AUTHORITY\\SYSTEM",
+    }
+    sysm = _system(ts, provider=SYSMON_PROVIDER, provider_guid=SYSMON_GUID, event_id=10,
+                   channel="Microsoft-Windows-Sysmon/Operational", computer=computer,
+                   record_id=record_id, task=10)
+    return _event(sysm, ed)
+
+
 def security_log_cleared(ts: float, *, computer: str, record_id: int,
                          subject_user: str, subject_domain: str) -> str:
     """Security 1102 -- the audit log was cleared."""

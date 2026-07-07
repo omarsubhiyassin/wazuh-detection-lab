@@ -85,11 +85,14 @@ Project complete for v1. **v1+ added:**
    `PSEXESVC.exe`).
 5. Log clearing (T1070.001): scenario + rules 100600 (Security 1102 effect) and 100601
    (`wevtutil` command). Adds a Defense Evasion column.
+6. LSASS credential dumping (T1003.001): scenario + rules 100700 (Sysmon 10 LSASS access from
+   a non-allow-listed source) and 100701 (dump tooling command line). Benign LSASS access
+   added to the baseline; the source-process allowlist held at scale (1 alert on the attack,
+   0 on ~27 benign accesses with the same access mask).
 
-Measured recall is now **100% (10/10 injected events across 8 techniques / 7 tactics), 0 FP**.
-Remaining iterations: the two deferred scenarios (LSASS credential access, new local admin
-account), other lateral-movement vectors (WMI/WinRM/renamed PsExec), and domain-hosted/HTTPS
-download detection.
+Measured recall is now **100% (11/11 injected events across 9 techniques / 7 tactics), 0 FP**.
+Remaining iterations: the last deferred scenario (new local admin account, T1136.001), other
+lateral-movement vectors (WMI/WinRM/renamed PsExec), and domain-hosted/HTTPS download detection.
 
 ## v1 attack scenarios
 

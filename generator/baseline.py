@@ -106,6 +106,28 @@ def generate(world: World, tl: Timeline, start_epoch: float, window: float) -> N
                 source_ip=host.ip, source_port=rng.randint(40000, 60000),
                 dest_ip=dest_ip, dest_port=rng.choice([80, 443]), dest_hostname=hostname))
 
+    # --- benign LSASS access (Sysmon 10) -------------------------------------
+    # Legit system/AV processes read LSASS routinely, sometimes with the same
+    # access mask a dumper uses. The credential-dumping rule must discriminate by
+    # source process (allowlist), not by the mask alone -- these exercise that.
+    _LEGIT_LSASS = [
+        r"C:\Program Files\Windows Defender\MsMpEng.exe",
+        r"C:\Windows\System32\wininit.exe",
+        r"C:\Windows\System32\svchost.exe",
+    ]
+    lsass = r"C:\Windows\System32\lsass.exe"
+    for host in world.windows_hosts:
+        for _ in range(max(1, round(1.5 * hours))):
+            off = _diurnal_offset(world, start_epoch, window)
+            tl.emit(off, "windows_events.json", partial(
+                windows.sysmon_process_access,
+                computer=host.name, record_id=world.record_id(),
+                source_image=rng.choice(_LEGIT_LSASS), target_image=lsass,
+                granted_access=rng.choice(["0x1410", "0x1010", "0x1400"]),
+                source_process_id=world.pid(), target_process_id=world.pid(),
+                user="NT AUTHORITY\\SYSTEM", source_process_guid=world.guid(),
+                target_process_guid=world.guid()))
+
     # --- benign DNS ----------------------------------------------------------
     for _ in range(max(1, round(RATE_DNS * hours))):
         off = _diurnal_offset(world, start_epoch, window)

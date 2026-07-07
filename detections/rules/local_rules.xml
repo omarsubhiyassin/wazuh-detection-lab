@@ -57,6 +57,36 @@
 
 </group>
 
+<!-- ===================== Credential Access (LSASS dumping) ================== -->
+<group name="detection_lab,sysmon,windows,credential_access,">
+
+  <!-- The read: a non-system process opens LSASS memory with read rights.
+       Legit accessors (AV, wininit, svchost, ...) are allow-listed via negate,
+       so this fires on the mask+target regardless of which tool is used. -->
+  <rule id="100700" level="13">
+    <decoded_as>json</decoded_as>
+    <field name="win.system.eventID" type="pcre2">^10$</field>
+    <field name="win.eventdata.targetImage" type="pcre2">(?i)\\lsass\.exe$</field>
+    <field name="win.eventdata.grantedAccess" type="pcre2">(?i)^0x(1010|1410|1418|1438|143a|1fffff)$</field>
+    <field name="win.eventdata.sourceImage" negate="yes" type="pcre2">(?i)\\(wininit|csrss|services|lsass|MsMpEng|MpDefenderCoreService|SenseCncProxy|svchost)\.exe$</field>
+    <description>Suspicious process accessed LSASS memory (credential dumping).</description>
+    <mitre>
+      <id>T1003.001</id>
+    </mitre>
+  </rule>
+
+  <!-- The command: known LSASS-dump tooling / techniques on the command line. -->
+  <rule id="100701" level="13">
+    <if_sid>100100</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(-ma\s+lsass|procdump.{0,40}lsass|comsvcs\.dll.{0,20}minidump|rundll32.{0,40}minidump|sekurlsa|out-minidump|nanodump)</field>
+    <description>LSASS credential-dump tooling on the command line.</description>
+    <mitre>
+      <id>T1003.001</id>
+    </mitre>
+  </rule>
+
+</group>
+
 <!-- ===================== Defense Evasion (log clearing) ===================== -->
 <group name="detection_lab,windows,defense_evasion,">
 

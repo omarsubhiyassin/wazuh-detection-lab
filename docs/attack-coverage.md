@@ -13,6 +13,7 @@ Legend: ☐ planned · ◐ injected only · ● injected + detected
 |-----------|------|--------|-------------|:--:|:--:|
 | T1110 | Brute Force | Credential Access | sshd auth.log | ◐ | ● |
 | T1078 | Valid Accounts | Initial Access / Persistence | sshd auth.log | ◐ | ● |
+| T1003.001 | OS Credential Dumping: LSASS | Credential Access | Sysmon 10 / Sysmon 1 | ◐ | ● |
 | T1059.001 | PowerShell | Execution | Sysmon 1 | ◐ | ● |
 | T1105 | Ingress Tool Transfer | Command & Control | Suricata HTTP | ◐ | ● |
 | T1053.005 | Scheduled Task | Persistence / Execution | Sysmon 1 / Security 4698 | ◐ | ● |
@@ -24,6 +25,8 @@ Detected-by (rule ID → technique):
 - **T1110** → built-in 5710/5712 (SSH brute force), verified end-to-end in Phase 1.
 - **T1078** → custom **100400** (successful SSH login from an IP that just brute-forced;
   `if_matched_sid` 5712 + `same_source_ip`). Phase 4 composite.
+- **T1003.001** → custom **100700** (LSASS memory access from a non-allow-listed process;
+  Sysmon 10) and **100701** (dump tooling on the command line).
 - **T1059.001** → custom **100101** (encoded PowerShell command line).
 - **T1053.005** → custom **100110** (schtasks `/Create`) and **100121** (Security 4698 launching a suspicious interpreter).
 - **T1059.001 + T1053.005 chain** → custom **100420** (composite): encoded PowerShell followed by scheduled-task persistence on the same host (`same_field win.system.computer`).

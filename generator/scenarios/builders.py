@@ -310,6 +310,39 @@ def log_clearing(cfg: dict, world: World, tl: Timeline, start: float) -> None:
              note=f"Security event log cleared on {host} via wevtutil")
 
 
+def credential_dumping(cfg: dict, world: World, tl: Timeline, start: float) -> None:
+    """LSASS memory dump via procdump -> Sysmon 1 (command) + Sysmon 10 (LSASS access)."""
+    p = cfg["params"]
+    name = cfg["name"]
+    host = p["host"]
+    user = p["user"]
+    dumper = p["dumper_image"]
+    lsass = r"C:\Windows\System32\lsass.exe"
+    dump = r"C:\Windows\Temp\lsass.dmp"
+    src_guid = world.guid()
+    src_pid = world.pid()
+
+    # 1) the dumper process with a revealing command line.
+    tl.emit(start, "windows_events.json", partial(
+        windows.sysmon_process_create,
+        computer=host, record_id=world.record_id(), image=dumper,
+        command_line=f'"{dumper}" -accepteula -ma lsass.exe {dump}',
+        parent_image=r"C:\Windows\System32\cmd.exe", parent_command_line=r"cmd.exe /c",
+        user=user, process_guid=src_guid, parent_process_guid=world.guid(),
+        process_id=src_pid, parent_process_id=world.pid()))
+
+    # 2) the dumper opens a full-access handle to LSASS (Sysmon 10) -- the read.
+    tl.emit(start + 0.5, "windows_events.json", partial(
+        windows.sysmon_process_access,
+        computer=host, record_id=world.record_id(), source_image=dumper, target_image=lsass,
+        granted_access="0x1fffff", source_process_id=src_pid, target_process_id=world.pid(),
+        user=user, source_process_guid=src_guid, target_process_guid=world.guid()))
+
+    tl.label(start + 0.5, technique_id="T1003.001", tactic="Credential Access", scenario=name,
+             host=host, source="sysmon", expected_rules=p.get("expected_rules", []),
+             note=f"LSASS memory access from {dumper} (credential dumping)")
+
+
 BUILDERS = {
     "brute_force_success": brute_force_success,
     "powershell_cradle": powershell_cradle,
@@ -318,4 +351,5 @@ BUILDERS = {
     "exec_to_persistence": exec_to_persistence,
     "lateral_movement": lateral_movement,
     "log_clearing": log_clearing,
+    "credential_dumping": credential_dumping,
 }
