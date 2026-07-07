@@ -69,11 +69,16 @@ T1059.001 rule (fixed — T1105 now has no expected detector), and the FP metric
 run-order-independently (custom alert tagged with a non-injected technique) so a shared
 indexer's prior-run alerts don't inflate it. **Done.**
 
-Project complete for v1. **v1+ added:** execution→persistence kill-chain correlation
-(rule 100420 + `exec_to_persistence` scenario, on its own host to avoid false correlation)
-— measured recall rose to **88% (7/8)**, composite verified to fire only for the kill-chain
-host. Remaining iterations: the four deferred scenarios (LSASS, new account, lateral
-movement, log clearing) and network telemetry to close T1105.
+Project complete for v1. **v1+ added:**
+1. Execution→persistence kill-chain correlation (rule 100420 + `exec_to_persistence`
+   scenario on its own host to avoid false correlation).
+2. T1105 closed with network telemetry — the cradle now emits its HTTP download
+   (Suricata), detected by rule 100310 (script/exe fetched from a bare IP), with benign
+   HTTP added to the baseline (incl. a legit domain-hosted `.ps1`) as a false-positive guard.
+
+Measured recall is now **100% (8/8 injected events), 0 FP**. Remaining iterations are depth,
+not breadth: the four deferred scenarios (LSASS, new account, lateral movement, log
+clearing), domain-hosted/HTTPS download detection, and richer cross-technique correlation.
 
 ## v1 attack scenarios
 

@@ -42,6 +42,14 @@ Levels: Wazuh 0–15 (0 = log-only, 12+ = high). Tests live in
 - **Test:** `dns_txt_tunnel.log` → 100300.
 - **Limitations / evasions:** per-query and noisy by design (fires on every beacon) — 100410 aggregates it. Misses base32/alphanumeric encodings and non-TXT tunneling; a short-label or low-entropy scheme evades the regex.
 
+## 100310 — Script/executable downloaded over HTTP from a bare IP
+- **ATT&CK:** T1105 (Command and Control / Ingress Tool Transfer) · **Level:** 12
+- **Hypothesis:** Fetching a script or executable over plain HTTP directly from a raw IP (no domain) is a strong second-stage / tool-transfer IOC — exactly what a download cradle does.
+- **Data source:** Suricata `eve.json` HTTP → `http.http_method`, `http.url`, `http.hostname`.
+- **Logic:** child of group `suricata`; `GET`, `url` ends in a script/exe extension (`.ps1/.psm1/.exe/.dll/.bat/.hta/.vbs/.scr`), and `hostname` is a bare IPv4. The bare-IP requirement keeps legitimate CDN/domain fetches (e.g. `raw.githubusercontent.com/...install.ps1`) from matching.
+- **Test:** `malicious_download.log` → 100310; `benign_http.log` (same `.ps1`, but from a domain) → no alert.
+- **Limitations / evasions:** misses payloads hosted on a **domain** (needs threat-intel/newly-registered-domain enrichment or a JA3/UA signal), HTTPS downloads (no cleartext URL — would need TLS SNI + JA3), and non-script extensions. A same-host composite with 100101 (execution) would raise confidence further — a natural next step.
+
 ## 100400 — SSH brute-force followed by success (same source IP)
 - **ATT&CK:** T1078 (Valid Accounts) + T1110 (Brute Force) · **Level:** 12 · **composite**
 - **Hypothesis:** A successful login from an IP that was *just* brute-forcing indicates a compromised credential, not a benign login.

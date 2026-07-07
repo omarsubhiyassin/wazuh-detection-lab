@@ -14,7 +14,7 @@ Legend: ☐ planned · ◐ injected only · ● injected + detected
 | T1110 | Brute Force | Credential Access | sshd auth.log | ◐ | ● |
 | T1078 | Valid Accounts | Initial Access / Persistence | sshd auth.log | ◐ | ● |
 | T1059.001 | PowerShell | Execution | Sysmon 1 | ◐ | ● |
-| T1105 | Ingress Tool Transfer | Command & Control | Sysmon 1 | ◐ | ☐ |
+| T1105 | Ingress Tool Transfer | Command & Control | Suricata HTTP | ◐ | ● |
 | T1053.005 | Scheduled Task | Persistence / Execution | Sysmon 1 / Security 4698 | ◐ | ● |
 | T1071.004 | DNS (App-Layer C2) | Command & Control | Suricata DNS | ◐ | ● |
 
@@ -27,8 +27,11 @@ Detected-by (rule ID → technique):
 - **T1059.001 + T1053.005 chain** → custom **100420** (composite): encoded PowerShell followed by scheduled-task persistence on the same host (`same_field win.system.computer`).
 - **T1071.004** → custom **100300** (per-query long-hex TXT signature) and **100410**
   (Phase 4 beacon-regularity correlation: 8+ such queries from one host in 600s).
+- **T1105** → custom **100310** (script/exe fetched over HTTP from a bare IP; Suricata HTTP).
 
-Gaps: **T1105** (the download itself) needs network-side telemetry; not yet detected.
+Gaps: none in the v1 technique set — **measured recall 100% (8/8 injected events), 0 FP**.
+Depth (not breadth) remains: domain-hosted / HTTPS downloads, more scenarios, richer
+correlation.
 
 ## Detection catalog
 

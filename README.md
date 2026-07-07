@@ -49,10 +49,11 @@ Building in phases (see [docs/roadmap.md](docs/roadmap.md)):
 - [x] **Phase 5** — Custom dashboard
 - [x] **Phase 6** — Validation harness + docs
 
-**Measured coverage** (live stream run): recall **88%** (7/8 injected events detected),
-false positives **0**. T1105 (the download in the PowerShell cradle) is the one gap — no
-network telemetry yet. Includes an execution→persistence kill-chain correlation (rule
-100420). See [validation/](validation/) and [docs/detections.md](docs/detections.md).
+**Measured coverage** (live stream run): recall **100%** (8/8 injected events detected),
+false positives **0** across the full v1 technique set. Includes an execution→persistence
+kill-chain correlation (rule 100420) and network-based ingress-tool-transfer detection
+(rule 100310, closing T1105). See [validation/](validation/) and
+[docs/detections.md](docs/detections.md).
 
 **v1 attack scenarios:** brute-force→success (T1110→T1078), encoded PowerShell cradle
 (T1059.001), scheduled-task persistence (T1053.005), DNS-tunnel C2 beacon (T1071.004).

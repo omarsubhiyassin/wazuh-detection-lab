@@ -24,6 +24,19 @@ _DIURNAL_MAX = max(_DIURNAL)
 RATE_SSH_PER_HOST = 1.5
 RATE_WIN_PROC_PER_HOST = 4.0
 RATE_DNS = 40.0
+RATE_HTTP = 18.0
+
+_CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+# Benign web traffic to real hostnames. Includes a legit script fetch from a
+# DOMAIN (raw.githubusercontent.com/...ps1) so the ingress-tool-transfer rule's
+# bare-IP requirement is exercised against a true negative.
+_BENIGN_HTTP = [
+    ("www.google.com", "/", "142.250.72.196", _CHROME_UA),
+    ("github.com", "/wazuh/wazuh", "140.82.113.3", _CHROME_UA),
+    ("update.microsoft.com", "/v6/windowsupdate", "23.45.12.10", "Windows-Update-Agent/10.0"),
+    ("api.datadoghq.com", "/api/v1/series", "3.233.150.10", "datadog-agent/7.51.0"),
+    ("raw.githubusercontent.com", "/PowerShell/PowerShell/master/tools/install.ps1", "185.199.108.133", _CHROME_UA),
+]
 
 _BENIGN_WIN_PROCS = [
     (r"C:\Program Files\Google\Chrome\Application\chrome.exe", r"C:\Windows\explorer.exe"),
@@ -86,3 +99,13 @@ def generate(world: World, tl: Timeline, start_epoch: float, window: float) -> N
             suricata.dns_query, src_ip=src.ip, dest_ip=INTERNAL_RESOLVER,
             rrname=rng.choice(BENIGN_DOMAINS), rrtype="A",
             src_port=rng.randint(40000, 60000), tx_id=rng.randint(1, 65535)))
+
+    # --- benign HTTP ---------------------------------------------------------
+    for _ in range(max(1, round(RATE_HTTP * hours))):
+        off = _diurnal_offset(world, start_epoch, window)
+        src = rng.choice(world.windows_hosts + world.linux_hosts)
+        hostname, url, dest_ip, ua = rng.choice(_BENIGN_HTTP)
+        tl.emit(off, "eve.json", partial(
+            suricata.http_request, src_ip=src.ip, dest_ip=dest_ip, hostname=hostname,
+            url=url, src_port=rng.randint(40000, 60000), user_agent=ua,
+            status=200, length=rng.randint(500, 250000)))

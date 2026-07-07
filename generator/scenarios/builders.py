@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 from functools import partial
+from urllib.parse import urlsplit
 
 from emitters import suricata, sshd, windows
 from timeline import Timeline
@@ -19,6 +20,9 @@ from world import World
 
 # Usernames an SSH brute-force sprays before landing on a real account.
 _SPRAY_USERS = ["root", "admin", "test", "oracle", "postgres", "ubuntu", "git", "user"]
+
+# .NET / PowerShell download-cradle user agent (Net.WebClient sends this family).
+_PS_UA = "Mozilla/5.0 (Windows NT 10.0; WOW64) WindowsPowerShell/5.1.19041.1"
 
 
 def _psencode(command: str) -> str:
@@ -67,6 +71,7 @@ def brute_force_success(cfg: dict, world: World, tl: Timeline, start: float) -> 
 def powershell_cradle(cfg: dict, world: World, tl: Timeline, start: float) -> None:
     p = cfg["params"]
     name = cfg["name"]
+    rng = world.rng
     host = p["host"]
     user = p["user"]
     parent_image = p["parent_image"]
@@ -84,12 +89,19 @@ def powershell_cradle(cfg: dict, world: World, tl: Timeline, start: float) -> No
     tl.label(start, technique_id="T1059.001", tactic="Execution", scenario=name,
              host=host, source="sysmon", expected_rules=p.get("expected_rules", []),
              note="encoded PowerShell spawned by an Office process")
-    # The cradle performs an ingress tool transfer, but 100101 detects the
-    # *execution* (T1059.001), not the download — T1105 has no signature-level
-    # detector with current telemetry, so it is honestly an uncovered gap.
-    tl.label(start, technique_id="T1105", tactic="Command and Control", scenario=name,
-             host=host, source="sysmon", expected_rules=[],
-             note=f"download cradle to {p['c2_url']} (no network telemetry; undetected)")
+
+    # The cradle then fetches its second stage — the actual ingress tool transfer.
+    # Emit the HTTP GET as network telemetry (Suricata) so it can be detected.
+    u = urlsplit(p["c2_url"])
+    off = start + rng.uniform(1.5, 3.0)
+    tl.emit(off, "eve.json", partial(
+        suricata.http_request, src_ip=world.ip_of(host), dest_ip=u.hostname,
+        hostname=u.hostname, url=u.path or "/", dest_port=u.port or 80,
+        src_port=rng.randint(40000, 60000), user_agent=_PS_UA,
+        status=200, length=rng.randint(20000, 90000)))
+    tl.label(off, technique_id="T1105", tactic="Command and Control", scenario=name,
+             host=host, source="suricata", expected_rules=[100310],
+             note=f"HTTP download of {p['c2_url']} (ingress tool transfer)")
 
 
 def scheduled_task(cfg: dict, world: World, tl: Timeline, start: float) -> None:

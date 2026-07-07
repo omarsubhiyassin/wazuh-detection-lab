@@ -4,9 +4,11 @@
 100110	schtasks_create.log	Scheduled task created via schtasks.exe (T1053.005)
 100121	scheduled_task_4698.log	Security 4698 task launching suspicious command (T1053.005)
 100300	dns_txt_tunnel.log	DNS TXT query with long hex subdomain (T1071.004)
+100310	malicious_download.log	Script downloaded over HTTP from a bare IP (T1105)
 # composite / correlation (multi-line samples; rule fires on a later line)
 100400	bruteforce_then_success.log	SSH brute-force then success, same IP (T1078)
 100410	dns_beacon_session.log	DNS beacon regularity, repeated queries (T1071.004)
 100420	exec_to_persistence.log	Kill chain: execution then persistence, same host (T1059.001+T1053.005)
 NOALERT	benign_process.log	Benign process creation must not alert
 NOALERT	benign_dns.log	Benign DNS lookup must not alert
+NOALERT	benign_http.log	Legit script download from a domain must not alert

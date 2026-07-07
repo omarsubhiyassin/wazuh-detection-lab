@@ -30,6 +30,31 @@ def dns_query(ts: float, *, src_ip: str, dest_ip: str, rrname: str, rrtype: str 
     return json.dumps(obj, separators=(",", ":"))
 
 
+def http_request(ts: float, *, src_ip: str, dest_ip: str, hostname: str, url: str,
+                 src_port: int, dest_port: int = 80, method: str = "GET",
+                 user_agent: str = "", status: int = 200, length: int = 0,
+                 proto: str = "TCP") -> str:
+    obj = {
+        "timestamp": _ts(ts),
+        "event_type": "http",
+        "src_ip": src_ip,
+        "src_port": src_port,
+        "dest_ip": dest_ip,
+        "dest_port": dest_port,
+        "proto": proto,
+        "http": {
+            "hostname": hostname,
+            "url": url,
+            "http_user_agent": user_agent,
+            "http_method": method,
+            "protocol": "HTTP/1.1",
+            "status": status,
+            "length": length,
+        },
+    }
+    return json.dumps(obj, separators=(",", ":"))
+
+
 def flow(ts: float, *, src_ip: str, dest_ip: str, dest_port: int, proto: str = "TCP",
          app_proto: str = "tls", bytes_toserver: int = 0, bytes_toclient: int = 0) -> str:
     obj = {

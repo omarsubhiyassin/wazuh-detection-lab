@@ -121,6 +121,25 @@
 
 </group>
 
+<!-- Ingress tool transfer: a script/executable fetched over HTTP directly from a
+     bare IP (no domain) is a strong download IOC. The bare-IP requirement keeps
+     legitimate script fetches from CDNs/domains (e.g. raw.githubusercontent.com)
+     from matching. -->
+<group name="detection_lab,suricata,http,">
+
+  <rule id="100310" level="12">
+    <if_group>suricata</if_group>
+    <field name="http.http_method">GET</field>
+    <field name="http.url" type="pcre2">(?i)\.(ps1|psm1|exe|dll|bat|hta|vbs|scr)(\?|$)</field>
+    <field name="http.hostname" type="pcre2">^\d{1,3}(\.\d{1,3}){3}$</field>
+    <description>Script/executable downloaded over HTTP from a bare IP (ingress tool transfer).</description>
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+  </rule>
+
+</group>
+
 <!-- Kill chain: encoded PowerShell execution followed by scheduled-task
      persistence on the SAME host within a short window. Correlates on
      win.system.computer (all Windows events arrive via one agent, so the agent
