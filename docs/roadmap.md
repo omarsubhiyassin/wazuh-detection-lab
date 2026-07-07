@@ -75,10 +75,15 @@ Project complete for v1. **v1+ added:**
 2. T1105 closed with network telemetry — the cradle now emits its HTTP download
    (Suricata), detected by rule 100310 (script/exe fetched from a bare IP), with benign
    HTTP added to the baseline (incl. a legit domain-hosted `.ps1`) as a false-positive guard.
+3. Download↔execution composite (rule 100430): the encoded-PowerShell process also opens an
+   outbound connection (Sysmon Event ID 3), correlated to the execution by
+   `win.eventdata.processGuid`. Process-GUID correlation sidesteps the network↔endpoint
+   identity gap (Suricata `src_ip` vs Sysmon `computer` share no field). Verified to fire only
+   for the cradle process, not benign network noise.
 
 Measured recall is now **100% (8/8 injected events), 0 FP**. Remaining iterations are depth,
 not breadth: the four deferred scenarios (LSASS, new account, lateral movement, log
-clearing), domain-hosted/HTTPS download detection, and richer cross-technique correlation.
+clearing) and domain-hosted/HTTPS download detection.
 
 ## v1 attack scenarios
 

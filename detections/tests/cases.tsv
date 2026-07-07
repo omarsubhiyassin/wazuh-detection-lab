@@ -9,6 +9,7 @@
 100400	bruteforce_then_success.log	SSH brute-force then success, same IP (T1078)
 100410	dns_beacon_session.log	DNS beacon regularity, repeated queries (T1071.004)
 100420	exec_to_persistence.log	Kill chain: execution then persistence, same host (T1059.001+T1053.005)
+100430	exec_to_download.log	Download cradle: encoded PS process opens a network connection (T1059.001+T1105)
 NOALERT	benign_process.log	Benign process creation must not alert
 NOALERT	benign_dns.log	Benign DNS lookup must not alert
 NOALERT	benign_http.log	Legit script download from a domain must not alert

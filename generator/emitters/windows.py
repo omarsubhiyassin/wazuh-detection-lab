@@ -83,6 +83,33 @@ def sysmon_process_create(ts: float, *, computer: str, record_id: int, image: st
     return _event(sysm, ed)
 
 
+def sysmon_network_connection(ts: float, *, computer: str, record_id: int, process_guid: str,
+                              process_id: int, image: str, user: str, source_ip: str,
+                              source_port: int, dest_ip: str, dest_port: int,
+                              protocol: str = "tcp", initiated: str = "true",
+                              dest_hostname: str = "") -> str:
+    """Sysmon Event ID 3 -- network connection. Carries the connecting process's
+    GUID, so it can be correlated back to the process-creation event."""
+    ed = {
+        "utcTime": _utc(ts),
+        "processGuid": process_guid,
+        "processId": str(process_id),
+        "image": image,
+        "user": user,
+        "protocol": protocol,
+        "initiated": initiated,
+        "sourceIp": source_ip,
+        "sourcePort": str(source_port),
+        "destinationIp": dest_ip,
+        "destinationPort": str(dest_port),
+        "destinationHostname": dest_hostname,
+    }
+    sysm = _system(ts, provider=SYSMON_PROVIDER, provider_guid=SYSMON_GUID, event_id=3,
+                   channel="Microsoft-Windows-Sysmon/Operational", computer=computer,
+                   record_id=record_id, task=3)
+    return _event(sysm, ed)
+
+
 def security_scheduled_task_created(ts: float, *, computer: str, record_id: int,
                                     subject_user: str, subject_domain: str,
                                     task_name: str, task_content: str) -> str:

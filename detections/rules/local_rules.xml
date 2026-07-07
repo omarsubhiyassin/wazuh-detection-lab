@@ -48,6 +48,13 @@
     </mitre>
   </rule>
 
+  <rule id="100200" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="win.system.providerName">Microsoft-Windows-Sysmon</field>
+    <field name="win.system.eventID" type="pcre2">^3$</field>
+    <description>Sysmon: network connection (Event ID 3).</description>
+  </rule>
+
 </group>
 
 <!-- ===================== Persistence (Security 4698) ========================= -->
@@ -155,6 +162,20 @@
     <mitre>
       <id>T1059.001</id>
       <id>T1053.005</id>
+    </mitre>
+  </rule>
+
+  <!-- Download cradle confirmed: the SAME encoded-PowerShell process (correlated
+       by processGuid, not host) opens an outbound network connection. Ties the
+       execution to the ingress tool transfer with process-level precision. -->
+  <rule id="100430" level="13" timeframe="300">
+    <if_sid>100200</if_sid>
+    <if_matched_sid>100101</if_matched_sid>
+    <same_field>win.eventdata.processGuid</same_field>
+    <description>Download cradle: an encoded-PowerShell process made an outbound network connection.</description>
+    <mitre>
+      <id>T1059.001</id>
+      <id>T1105</id>
     </mitre>
   </rule>
 

@@ -73,3 +73,11 @@ Levels: Wazuh 0–15 (0 = log-only, 12+ = high). Tests live in
 - **Logic:** `if_sid 100121` + `if_matched_sid 100101` + `same_field win.system.computer`, `timeframe 600`. Correlates on the host name (not the agent — all Windows events arrive through one lab agent). The tight window keeps independent same-host activity from looking like a chain.
 - **Test:** `exec_to_persistence.log` (PowerShell → schtasks → 4698, all one host) → 100420.
 - **Limitations / evasions:** persistence via a mechanism other than a scheduled task (run key, service, WMI) isn't chained here; a dwell time longer than the timeframe between execution and persistence evades it. Validated to fire only for the dedicated kill-chain host, not for independent same-host scenarios.
+
+## 100430 — Download cradle: encoded PowerShell process opens a network connection
+- **ATT&CK:** T1059.001 (Execution) + T1105 (Ingress Tool Transfer) · **Level:** 13 · **composite**
+- **Hypothesis:** An encoded-PowerShell process that then makes an outbound connection is a download cradle fetching its second stage — far stronger than either signal alone.
+- **Data source:** rule 100101 (encoded PS, Sysmon 1) and 100200 (Sysmon 3 network connection), correlated by **`win.eventdata.processGuid`** — the exact process, not just the host.
+- **Logic:** `if_sid 100200` + `if_matched_sid 100101` + `same_field win.eventdata.processGuid`, `timeframe 300`. Process-GUID correlation is what lets endpoint execution and endpoint network telemetry be joined precisely; it also sidesteps the network↔endpoint identity problem (Suricata `src_ip` vs Sysmon `computer` have no shared field — hence the endpoint Sysmon-3 view here).
+- **Test:** `exec_to_download.log` (Sysmon 1 + Sysmon 3, same processGuid) → 100430.
+- **Limitations / evasions:** needs Sysmon Event ID 3 enabled; process-hollowing/injection that connects from a different process breaks the GUID link; a benign process making connections is correctly ignored (no prior 100101 for its GUID — verified against baseline network noise).

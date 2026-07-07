@@ -27,7 +27,9 @@ Detected-by (rule ID → technique):
 - **T1059.001 + T1053.005 chain** → custom **100420** (composite): encoded PowerShell followed by scheduled-task persistence on the same host (`same_field win.system.computer`).
 - **T1071.004** → custom **100300** (per-query long-hex TXT signature) and **100410**
   (Phase 4 beacon-regularity correlation: 8+ such queries from one host in 600s).
-- **T1105** → custom **100310** (script/exe fetched over HTTP from a bare IP; Suricata HTTP).
+- **T1105** → custom **100310** (script/exe fetched over HTTP from a bare IP; Suricata HTTP)
+  and **100430** (composite: an encoded-PowerShell process opens an outbound connection,
+  correlated by `win.eventdata.processGuid`).
 
 Gaps: none in the v1 technique set — **measured recall 100% (8/8 injected events), 0 FP**.
 Depth (not breadth) remains: domain-hosted / HTTPS downloads, more scenarios, richer

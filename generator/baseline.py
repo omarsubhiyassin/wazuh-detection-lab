@@ -91,6 +91,21 @@ def generate(world: World, tl: Timeline, start_epoch: float, window: float) -> N
                 process_guid=world.guid(), parent_process_guid=world.guid(),
                 process_id=world.pid(), parent_process_id=world.pid()))
 
+    # --- benign Windows network connections (Sysmon 3) -----------------------
+    # Normal processes reaching out. These share no GUID with any encoded-PS
+    # alert, so the download<->execution composite must not fire on them.
+    for host in world.windows_hosts:
+        for _ in range(max(1, round(RATE_WIN_PROC_PER_HOST * hours))):
+            off = _diurnal_offset(world, start_epoch, window)
+            image, _ = rng.choice(_BENIGN_WIN_PROCS)
+            hostname, _url, dest_ip, _ua = rng.choice(_BENIGN_HTTP)
+            tl.emit(off, "windows_events.json", partial(
+                windows.sysmon_network_connection,
+                computer=host.name, record_id=world.record_id(), process_guid=world.guid(),
+                process_id=world.pid(), image=image, user=f"CORP\\{rng.choice(world.human_users).name}",
+                source_ip=host.ip, source_port=rng.randint(40000, 60000),
+                dest_ip=dest_ip, dest_port=rng.choice([80, 443]), dest_hostname=hostname))
+
     # --- benign DNS ----------------------------------------------------------
     for _ in range(max(1, round(RATE_DNS * hours))):
         off = _diurnal_offset(world, start_epoch, window)
