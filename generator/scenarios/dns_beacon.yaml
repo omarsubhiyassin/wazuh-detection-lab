@@ -1,0 +1,18 @@
+name: dns_beacon
+kind: dns_beacon
+description: >
+  DNS-tunnel C2 beacon: regular-interval DNS TXT queries with unique
+  high-entropy subdomains under a single attacker-controlled parent domain.
+mitre:
+  - technique: T1071.004
+    name: DNS
+    tactic: Command and Control
+params:
+  src_host: WIN-DEV-03
+  resolver_ip: 10.0.20.1
+  c2_domain: sync.telemetry-cdn.net
+  interval_seconds: 60
+  jitter_seconds: 8
+  beacons: 30
+  # Detection is a custom Phase 4 frequency rule (regularity + entropy); filled in then.
+  expected_rules: []

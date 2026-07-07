@@ -1,0 +1,19 @@
+name: powershell_cradle
+kind: powershell_cradle
+description: >
+  A malicious Office document spawns an encoded PowerShell download cradle
+  (IEX + Net.WebClient.DownloadString), pulling a second-stage payload.
+mitre:
+  - technique: T1059.001
+    name: PowerShell
+    tactic: Execution
+  - technique: T1105
+    name: Ingress Tool Transfer
+    tactic: Command and Control
+params:
+  host: WIN-FIN-01
+  user: CORP\jsmith
+  parent_image: C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE
+  c2_url: http://185.220.101.42/win/update.ps1
+  # Detection is a custom Phase 3 rule (encoded PS / cradle); filled in then.
+  expected_rules: []

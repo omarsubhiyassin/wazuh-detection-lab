@@ -11,12 +11,12 @@ Legend: ☐ planned · ◐ injected only · ● injected + detected
 
 | Technique | Name | Tactic | Data source | Injected | Detected |
 |-----------|------|--------|-------------|:--:|:--:|
-| T1110 | Brute Force | Credential Access | sshd / Win 4625 | ☐ | ☐ |
-| T1078 | Valid Accounts | Initial Access / Persistence | sshd / Win 4624 | ☐ | ☐ |
-| T1059.001 | PowerShell | Execution | Sysmon 1 | ☐ | ☐ |
-| T1105 | Ingress Tool Transfer | Command & Control | Sysmon 1 / net | ☐ | ☐ |
-| T1053.005 | Scheduled Task | Persistence / Execution | Sysmon 1 / Win 4698 | ☐ | ☐ |
-| T1071.004 | DNS (App-Layer C2) | Command & Control | Zeek dns / Suricata | ☐ | ☐ |
+| T1110 | Brute Force | Credential Access | sshd auth.log | ◐ | ☐ |
+| T1078 | Valid Accounts | Initial Access / Persistence | sshd auth.log | ◐ | ☐ |
+| T1059.001 | PowerShell | Execution | Sysmon 1 | ◐ | ☐ |
+| T1105 | Ingress Tool Transfer | Command & Control | Sysmon 1 | ◐ | ☐ |
+| T1053.005 | Scheduled Task | Persistence / Execution | Sysmon 1 / Security 4698 | ◐ | ☐ |
+| T1071.004 | DNS (App-Layer C2) | Command & Control | Suricata DNS | ◐ | ☐ |
 
 ## Detection catalog
 

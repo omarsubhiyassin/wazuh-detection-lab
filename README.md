@@ -43,7 +43,7 @@ Building in phases (see [docs/roadmap.md](docs/roadmap.md)):
 
 - [x] **Phase 0** — Lab infra + repo scaffolding
 - [ ] **Phase 1** — Wazuh up, ingestion smoke test
-- [ ] **Phase 2** — Synthetic log generator (baseline + 4 v1 scenarios)
+- [x] **Phase 2** — Synthetic log generator (baseline + 4 v1 scenarios)
 - [ ] **Phase 3** — Decoders + signature detections
 - [ ] **Phase 4** — Correlation / composite detections
 - [ ] **Phase 5** — Custom dashboard

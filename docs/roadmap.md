@@ -13,10 +13,11 @@ canonical `sshd` failed-login line and confirm the built-in ruleset fires and th
 lands in `wazuh-alerts-*`. Finalize the agent `<client>` enrollment + localfile wiring.
 Proves ingestion → decode → index → query before any custom logic.
 
-## Phase 2 — Synthetic log generator
-Baseline noise first (multi-host/user, diurnal), then the 4 v1 scenarios. Emit real
-formats; write `ground_truth.jsonl`. Support seed, `--backfill`/`--stream`, time
-compression.
+## Phase 2 — Synthetic log generator ✅
+Baseline noise (multi-host/user, diurnal) plus the 4 v1 scenarios, emitting real formats
+(sshd `auth.log`, Windows Event JSON, Suricata `eve.json`) with a `ground_truth.jsonl` of
+labels. Seed-reproducible; `backfill`/`stream` modes with time compression. See
+[generator/README.md](../generator/README.md). **Done.**
 
 ## Phase 3 — Decoders + signature detections
 Add custom decoders only where `wazuh-logtest` shows gaps. Single-event signature rules

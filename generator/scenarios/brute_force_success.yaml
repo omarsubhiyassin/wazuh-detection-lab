@@ -1,0 +1,23 @@
+name: brute_force_success
+kind: brute_force_success
+description: >
+  SSH password brute force from a single source IP against one host, ending in a
+  successful login as a valid service account (credential access escalating to
+  valid-account use).
+mitre:
+  - technique: T1110
+    name: Brute Force
+    tactic: Credential Access
+  - technique: T1078
+    name: Valid Accounts
+    tactic: Initial Access
+params:
+  target_host: web-01
+  target_valid_user: deploy
+  src_ip: 203.0.113.45
+  failed_attempts: 25
+  attempt_interval_seconds: 3
+  jitter_seconds: 2
+  # Built-in Wazuh rules expected to fire on the failed burst / the success.
+  expected_rules_bruteforce: [5710, 5712, 5720]
+  expected_rules_success: [5715]

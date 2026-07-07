@@ -1,0 +1,17 @@
+name: scheduled_task
+kind: scheduled_task
+description: >
+  Persistence via a scheduled task that re-launches an encoded PowerShell beacon
+  every 5 minutes. Emits both the schtasks.exe process (Sysmon 1) and the
+  Security 4698 task-registration event.
+mitre:
+  - technique: T1053.005
+    name: Scheduled Task
+    tactic: Persistence
+params:
+  host: WIN-FIN-01
+  user: CORP\jsmith
+  task_name: \Microsoft\Windows\Updater\HealthCheck
+  c2_url: http://185.220.101.42/win/beacon.ps1
+  # Detection is a custom Phase 3 rule (4698 + schtasks command line); filled in then.
+  expected_rules: []
