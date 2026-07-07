@@ -27,20 +27,26 @@ printf '%.0s-' {1..70}; echo
 
 while IFS=$'\t' read -r expected sample description; do
   case "$expected" in ''|'#'*) continue;; esac
-  # wazuh-logtest writes its analysis to stderr, so merge it into stdout.
+  # wazuh-logtest writes its analysis to stderr, so merge it into stdout. A
+  # sample may contain multiple lines (composite/correlation rules fire on a
+  # later line), and logtest keeps rule state across lines within one session.
   out=$(docker exec -i "$MANAGER" "$LOGTEST" < "$SAMPLES/$sample" 2>&1)
-  # Scope to the Phase 3 (rules) section so we read the fired RULE's id/level,
-  # not decoded fields like dns.id or win.system.level from Phase 2.
-  p3=$(printf '%s' "$out" | sed -n '/Phase 3/,$p')
-  id=$(printf '%s' "$p3"    | grep -oE "id: '[0-9]+'"    | head -1 | grep -oE '[0-9]+')
-  level=$(printf '%s' "$p3" | grep -oE "level: '[0-9]+'" | head -1 | grep -oE '[0-9]+')
+
+  # Collect every FIRED rule id/level. Anchor to lines that start (after
+  # indentation) with "id:"/"level:" so we don't pick up decoded fields like
+  # dns.id, mitre.id, or win.system.level.
+  ids=$(printf '%s\n' "$out"    | grep -oE "^[[:space:]]+id: '[0-9]+'"    | grep -oE '[0-9]+')
+  maxlevel=$(printf '%s\n' "$out" | grep -oE "^[[:space:]]+level: '[0-9]+'" | grep -oE '[0-9]+' | sort -n | tail -1)
 
   if [ "$expected" = "NOALERT" ]; then
-    got="${id:-none}/L${level:-0}"
-    if [ -z "$level" ] || [ "$level" = "0" ]; then ok=1; else ok=0; fi
+    got="maxL${maxlevel:-0}"
+    if [ -z "$maxlevel" ] || [ "$maxlevel" -eq 0 ]; then ok=1; else ok=0; fi
   else
-    got="${id:-none}"
-    if [ "$id" = "$expected" ]; then ok=1; else ok=0; fi
+    if printf '%s\n' "$ids" | grep -qx "$expected"; then
+      ok=1; got="fired"
+    else
+      ok=0; got=$(printf '%s' "$ids" | tr '\n' ',' | sed 's/,$//'); got="${got:-none}"
+    fi
   fi
 
   if [ "$ok" = 1 ]; then

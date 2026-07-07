@@ -12,7 +12,7 @@ Legend: ☐ planned · ◐ injected only · ● injected + detected
 | Technique | Name | Tactic | Data source | Injected | Detected |
 |-----------|------|--------|-------------|:--:|:--:|
 | T1110 | Brute Force | Credential Access | sshd auth.log | ◐ | ● |
-| T1078 | Valid Accounts | Initial Access / Persistence | sshd auth.log | ◐ | ☐ |
+| T1078 | Valid Accounts | Initial Access / Persistence | sshd auth.log | ◐ | ● |
 | T1059.001 | PowerShell | Execution | Sysmon 1 | ◐ | ● |
 | T1105 | Ingress Tool Transfer | Command & Control | Sysmon 1 | ◐ | ☐ |
 | T1053.005 | Scheduled Task | Persistence / Execution | Sysmon 1 / Security 4698 | ◐ | ● |
@@ -20,11 +20,14 @@ Legend: ☐ planned · ◐ injected only · ● injected + detected
 
 Detected-by (rule ID → technique):
 - **T1110** → built-in 5710/5712 (SSH brute force), verified end-to-end in Phase 1.
+- **T1078** → custom **100400** (successful SSH login from an IP that just brute-forced;
+  `if_matched_sid` 5712 + `same_source_ip`). Phase 4 composite.
 - **T1059.001** → custom **100101** (encoded PowerShell command line).
 - **T1053.005** → custom **100110** (schtasks `/Create`) and **100121** (Security 4698 launching a suspicious interpreter).
-- **T1071.004** → custom **100300** (DNS TXT query with long hex subdomain). Phase 4 adds a beacon-regularity correlation.
+- **T1071.004** → custom **100300** (per-query long-hex TXT signature) and **100410**
+  (Phase 4 beacon-regularity correlation: 8+ such queries from one host in 600s).
 
-Gaps: **T1078** (success-after-brute-force) and **T1105** (the download itself) need Phase 4 correlation / network-side telemetry respectively; not yet detected.
+Gaps: **T1105** (the download itself) needs network-side telemetry; not yet detected.
 
 ## Detection catalog
 

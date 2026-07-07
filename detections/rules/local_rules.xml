@@ -87,3 +87,36 @@
   </rule>
 
 </group>
+
+<!-- ===================== Phase 4: correlation / composite ==================== -->
+
+<!-- SSH brute force -> successful login from the SAME source IP (compromise). -->
+<group name="detection_lab,syslog,sshd,">
+
+  <rule id="100400" level="12" timeframe="300">
+    <if_sid>5715</if_sid>
+    <if_matched_sid>5712</if_matched_sid>
+    <same_source_ip />
+    <description>SSH: successful login from an IP that was just brute-forcing (likely account compromise).</description>
+    <mitre>
+      <id>T1078</id>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+
+</group>
+
+<!-- DNS beaconing: aggregate repeated tunneling queries from one host into a
+     single high-fidelity alert instead of one per query. -->
+<group name="detection_lab,suricata,dns,">
+
+  <rule id="100410" level="12" frequency="8" timeframe="600">
+    <if_matched_sid>100300</if_matched_sid>
+    <same_field>src_ip</same_field>
+    <description>DNS beaconing: repeated long-subdomain TXT queries from one host (possible C2 over DNS).</description>
+    <mitre>
+      <id>T1071.004</id>
+    </mitre>
+  </rule>
+
+</group>

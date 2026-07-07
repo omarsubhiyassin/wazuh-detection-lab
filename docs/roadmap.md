@@ -36,9 +36,18 @@ sample + expected result under [detections/tests/](../detections/tests/); the
 end-to-end: appended events produced 100101/100300 alerts in `wazuh-alerts-*` with
 `rule.mitre.id` populated. **Done.**
 
-## Phase 4 — Correlation / composite detections
-Frequency + `if_matched_sid`/`same_source_ip` rules: brute-force→success, C2 beacon
-regularity, persistence-after-credential-access chains.
+## Phase 4 — Correlation / composite detections ✅
+Composite rules in [local_rules.xml](../detections/rules/local_rules.xml):
+100400 SSH brute-force→success (`if_sid` 5715 + `if_matched_sid` 5712 + `same_source_ip`
+→ **T1078**) and 100410 DNS-beacon regularity (`if_matched_sid` 100300 + `frequency` 8 /
+`timeframe` 600 + `same_field` src_ip → **T1071.004**, one alert per session instead of
+per-query). Harness now 8/8 (multi-line samples; logtest keeps rule state across lines).
+Verified end-to-end: 100400 (`mitre.id` T1078/T1110) and 100410 (T1071.004) alerts in
+`wazuh-alerts-*`. **Done.**
+
+Deferred: a persistence-after-execution chain (encoded PS → scheduled task on one host)
+needs a tight-window kill-chain scenario in the generator; the current scenarios are
+placed too far apart in the window to correlate. Future generator enhancement.
 
 ## Phase 5 — Custom dashboard
 React SPA on the Indexer API: ATT&CK heatmap, alert feed + raw-log drawer, filters,
