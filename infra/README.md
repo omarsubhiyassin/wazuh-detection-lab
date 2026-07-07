@@ -117,6 +117,31 @@ docker compose up -d --force-recreate wazuh.manager wazuh.dashboard
 > end-to-end (hash + internal_users.yml + securityadmin + client env via the override),
 > keeping the vendored files pristine.
 
+## Read-only account for the custom dashboard
+
+The custom dashboard ([../dashboard/](../dashboard/)) queries the indexer through a
+least-privilege account (`detectionlab_ro`): read-only, scoped to `wazuh-alerts-*`, no
+write and no access to other indices. Create it via the OpenSearch security REST API
+(the password must satisfy the indexer's strength policy — upper/lower/digit/special):
+
+```bash
+U=admin:SecretPassword
+B=https://localhost:9200/_plugins/_security/api
+RO_PASS="$CUSTOM_DASHBOARD_RO_PASSWORD"   # from infra/.env
+
+# role: read-only on the alerts index
+curl -sk -u "$U" -XPUT "$B/roles/detectionlab_ro_role" -H 'Content-Type: application/json' -d '{
+  "cluster_permissions": ["cluster_composite_ops_ro"],
+  "index_permissions": [{"index_patterns":["wazuh-alerts-*"],
+    "allowed_actions":["read","indices:admin/mappings/get","indices:admin/get","indices:monitor/settings/get"]}]}'
+
+# user (password auto-hashed) mapped to the role
+curl -sk -u "$U" -XPUT "$B/internalusers/detectionlab_ro" -H 'Content-Type: application/json' -d "{
+  \"password\":\"$RO_PASS\",\"opendistro_security_roles\":[\"detectionlab_ro_role\"]}"
+```
+
+Verify least privilege: read `wazuh-alerts-*` → 200; write or read another index → 403.
+
 ## Customization model
 
 - **Never edit** files under `infra/wazuh-docker/` — that's the pinned vendored stack.

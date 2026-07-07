@@ -46,7 +46,7 @@ Building in phases (see [docs/roadmap.md](docs/roadmap.md)):
 - [x] **Phase 2** — Synthetic log generator (baseline + 4 v1 scenarios)
 - [x] **Phase 3** — Decoders + signature detections
 - [x] **Phase 4** — Correlation / composite detections
-- [ ] **Phase 5** — Custom dashboard
+- [x] **Phase 5** — Custom dashboard
 - [ ] **Phase 6** — Validation harness + docs
 
 **v1 attack scenarios:** brute-force→success (T1110→T1078), encoded PowerShell cradle

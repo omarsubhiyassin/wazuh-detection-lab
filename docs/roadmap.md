@@ -49,9 +49,15 @@ Deferred: a persistence-after-execution chain (encoded PS → scheduled task on 
 needs a tight-window kill-chain scenario in the generator; the current scenarios are
 placed too far apart in the window to correlate. Future generator enhancement.
 
-## Phase 5 — Custom dashboard
-React SPA on the Indexer API: ATT&CK heatmap, alert feed + raw-log drawer, filters,
-detection metrics. Read-only service account; secrets in `infra/.env`.
+## Phase 5 — Custom dashboard ✅
+React (Vite + TS) SPA over a thin Express BFF ([../dashboard/](../dashboard/)). The BFF
+holds a least-privilege indexer account (`detectionlab_ro`, read-only on `wazuh-alerts-*`,
+verified 403 on writes/other indices) so the browser only ever calls same-origin `/api`.
+Views: ATT&CK matrix heatmap (static tactic map, live `rule.mitre.id` counts), stat tiles
++ activity sparkline, filterable alert feed, and a detail drawer (raw log + `_source` +
+MITRE). Verified end-to-end against live data (697 alerts): `npm run build` clean,
+BFF aggregations correct, and the rendered UI — matrix, click-to-filter (T1071.004 → 33
+alerts), and drawer — confirmed via browser. **Done.**
 
 ## Phase 6 — Validation harness + docs
 Score alerts vs. ground truth → per-technique detection rate, FN, FP; coverage report +
