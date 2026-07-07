@@ -16,6 +16,7 @@ Legend: ☐ planned · ◐ injected only · ● injected + detected
 | T1059.001 | PowerShell | Execution | Sysmon 1 | ◐ | ● |
 | T1105 | Ingress Tool Transfer | Command & Control | Suricata HTTP | ◐ | ● |
 | T1053.005 | Scheduled Task | Persistence / Execution | Sysmon 1 / Security 4698 | ◐ | ● |
+| T1021.002 | SMB / Windows Admin Shares | Lateral Movement | Sysmon 1 (PSEXESVC) | ◐ | ● |
 | T1071.004 | DNS (App-Layer C2) | Command & Control | Suricata DNS | ◐ | ● |
 
 Detected-by (rule ID → technique):
@@ -25,6 +26,7 @@ Detected-by (rule ID → technique):
 - **T1059.001** → custom **100101** (encoded PowerShell command line).
 - **T1053.005** → custom **100110** (schtasks `/Create`) and **100121** (Security 4698 launching a suspicious interpreter).
 - **T1059.001 + T1053.005 chain** → custom **100420** (composite): encoded PowerShell followed by scheduled-task persistence on the same host (`same_field win.system.computer`).
+- **T1021.002** → custom **100500** (a process whose parent is `PSEXESVC.exe` = PsExec remote execution).
 - **T1071.004** → custom **100300** (per-query long-hex TXT signature) and **100410**
   (Phase 4 beacon-regularity correlation: 8+ such queries from one host in 600s).
 - **T1105** → custom **100310** (script/exe fetched over HTTP from a bare IP; Suricata HTTP)

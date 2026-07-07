@@ -237,10 +237,55 @@ def exec_to_persistence(cfg: dict, world: World, tl: Timeline, start: float) -> 
              note="scheduled-task persistence right after execution (kill-chain step 2)")
 
 
+def lateral_movement(cfg: dict, world: World, tl: Timeline, start: float) -> None:
+    """PsExec lateral movement: SMB connection to a target where PSEXESVC spawns a shell."""
+    p = cfg["params"]
+    name = cfg["name"]
+    rng = world.rng
+    src = p["source_host"]
+    tgt = p["target_host"]
+    user = p["admin_user"]
+    psexec = r"C:\PSTools\PsExec64.exe"
+    psexesvc = r"C:\Windows\PSEXESVC.exe"
+
+    # 1) SMB connection from the foothold to the target's admin share (context).
+    tl.emit(start, "windows_events.json", partial(
+        windows.sysmon_network_connection,
+        computer=src, record_id=world.record_id(), process_guid=world.guid(),
+        process_id=world.pid(), image=psexec, user=user, source_ip=world.ip_of(src),
+        source_port=rng.randint(40000, 60000), dest_ip=world.ip_of(tgt), dest_port=445,
+        dest_hostname=tgt))
+
+    # 2) PSEXESVC service starts on the target.
+    svc_guid = world.guid()
+    off = start + rng.uniform(0.5, 1.5)
+    tl.emit(off, "windows_events.json", partial(
+        windows.sysmon_process_create,
+        computer=tgt, record_id=world.record_id(), image=psexesvc,
+        command_line=f'"{psexesvc}"', parent_image=r"C:\Windows\System32\services.exe",
+        parent_command_line=r"C:\Windows\System32\services.exe", user="NT AUTHORITY\\SYSTEM",
+        process_guid=svc_guid, parent_process_guid=world.guid(),
+        process_id=world.pid(), parent_process_id=world.pid()))
+
+    # 3) the remotely executed command (child of PSEXESVC) -- the detection point.
+    off2 = off + rng.uniform(0.3, 1.0)
+    tl.emit(off2, "windows_events.json", partial(
+        windows.sysmon_process_create,
+        computer=tgt, record_id=world.record_id(), image=r"C:\Windows\System32\cmd.exe",
+        command_line='cmd.exe /c whoami & ipconfig /all & net group "Domain Admins" /domain',
+        parent_image=psexesvc, parent_command_line=f'"{psexesvc}"', user=user,
+        process_guid=world.guid(), parent_process_guid=svc_guid,
+        process_id=world.pid(), parent_process_id=world.pid()))
+    tl.label(off2, technique_id="T1021.002", tactic="Lateral Movement", scenario=name,
+             host=tgt, source="sysmon", expected_rules=p.get("expected_rules", []),
+             note=f"PsExec remote command execution on {tgt} from {src}")
+
+
 BUILDERS = {
     "brute_force_success": brute_force_success,
     "powershell_cradle": powershell_cradle,
     "scheduled_task": scheduled_task,
     "dns_beacon": dns_beacon,
     "exec_to_persistence": exec_to_persistence,
+    "lateral_movement": lateral_movement,
 }

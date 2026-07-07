@@ -74,6 +74,14 @@ Levels: Wazuh 0–15 (0 = log-only, 12+ = high). Tests live in
 - **Test:** `exec_to_persistence.log` (PowerShell → schtasks → 4698, all one host) → 100420.
 - **Limitations / evasions:** persistence via a mechanism other than a scheduled task (run key, service, WMI) isn't chained here; a dwell time longer than the timeframe between execution and persistence evades it. Validated to fire only for the dedicated kill-chain host, not for independent same-host scenarios.
 
+## 100500 — Remote command execution via PsExec (lateral movement)
+- **ATT&CK:** T1021.002 (Lateral Movement / SMB & Windows Admin Shares) · **Level:** 12
+- **Hypothesis:** A process whose parent is `PSEXESVC.exe` is a command run on this host *by* PsExec from elsewhere — a hallmark of lateral movement.
+- **Data source:** Sysmon Event ID 1 → `win.eventdata.parentImage`.
+- **Logic:** child of 100100; `parentImage` ends in `PSEXESVC.exe`. Fires on the remotely executed child (`cmd.exe`/`powershell.exe`), the actual foothold-expansion action, not just the service install.
+- **Test:** `lateral_movement_psexec.log` (SMB connect → PSEXESVC → cmd) → 100500.
+- **Limitations / evasions:** matches default PsExec only — a **renamed** service binary (`-r` flag) evades the name check; SMB/admin-share lateral movement without PsExec (wmiexec, `sc.exe` remote service, WinRM `wsmprovhost.exe`) needs its own rules. The source→target SMB flow is emitted for context but not correlated (network `src_ip` and endpoint `computer` share no field — the cross-host identity gap).
+
 ## 100430 — Download cradle: encoded PowerShell process opens a network connection
 - **ATT&CK:** T1059.001 (Execution) + T1105 (Ingress Tool Transfer) · **Level:** 13 · **composite**
 - **Hypothesis:** An encoded-PowerShell process that then makes an outbound connection is a download cradle fetching its second stage — far stronger than either signal alone.

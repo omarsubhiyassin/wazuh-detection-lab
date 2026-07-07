@@ -81,9 +81,14 @@ Project complete for v1. **v1+ added:**
    identity gap (Suricata `src_ip` vs Sysmon `computer` share no field). Verified to fire only
    for the cradle process, not benign network noise.
 
-Measured recall is now **100% (8/8 injected events), 0 FP**. Remaining iterations are depth,
-not breadth: the four deferred scenarios (LSASS, new account, lateral movement, log
-clearing) and domain-hosted/HTTPS download detection.
+4. Lateral movement (T1021.002): PsExec scenario + rule 100500 (a process parented by
+   `PSEXESVC.exe`). Adds a Lateral Movement column to the dashboard matrix (7 techniques,
+   7 tactics).
+
+Measured recall is now **100% (9/9 injected events across 7 techniques), 0 FP**. Remaining
+iterations: the three deferred scenarios (LSASS credential access, new local admin account,
+log clearing), other lateral-movement vectors (WMI/WinRM/renamed PsExec), and
+domain-hosted/HTTPS download detection.
 
 ## v1 attack scenarios
 

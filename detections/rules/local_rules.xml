@@ -57,6 +57,20 @@
 
 </group>
 
+<!-- ===================== Lateral Movement (PsExec) ========================== -->
+<group name="detection_lab,sysmon,windows,lateral_movement,">
+
+  <rule id="100500" level="12">
+    <if_sid>100100</if_sid>
+    <field name="win.eventdata.parentImage" type="pcre2">(?i)\\PSEXESVC\.exe$</field>
+    <description>Remote command execution via the PsExec service (lateral movement).</description>
+    <mitre>
+      <id>T1021.002</id>
+    </mitre>
+  </rule>
+
+</group>
+
 <!-- ===================== Persistence (Security 4698) ========================= -->
 <group name="detection_lab,windows,security,">
 
