@@ -84,9 +84,12 @@ def powershell_cradle(cfg: dict, world: World, tl: Timeline, start: float) -> No
     tl.label(start, technique_id="T1059.001", tactic="Execution", scenario=name,
              host=host, source="sysmon", expected_rules=p.get("expected_rules", []),
              note="encoded PowerShell spawned by an Office process")
+    # The cradle performs an ingress tool transfer, but 100101 detects the
+    # *execution* (T1059.001), not the download — T1105 has no signature-level
+    # detector with current telemetry, so it is honestly an uncovered gap.
     tl.label(start, technique_id="T1105", tactic="Command and Control", scenario=name,
-             host=host, source="sysmon", expected_rules=p.get("expected_rules", []),
-             note=f"download cradle to {p['c2_url']}")
+             host=host, source="sysmon", expected_rules=[],
+             note=f"download cradle to {p['c2_url']} (no network telemetry; undetected)")
 
 
 def scheduled_task(cfg: dict, world: World, tl: Timeline, start: float) -> None:

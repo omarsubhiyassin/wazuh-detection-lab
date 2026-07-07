@@ -47,7 +47,11 @@ Building in phases (see [docs/roadmap.md](docs/roadmap.md)):
 - [x] **Phase 3** — Decoders + signature detections
 - [x] **Phase 4** — Correlation / composite detections
 - [x] **Phase 5** — Custom dashboard
-- [ ] **Phase 6** — Validation harness + docs
+- [x] **Phase 6** — Validation harness + docs
+
+**Measured coverage** (live stream run): recall **83%** (5/6 injected techniques detected),
+false positives **0**. T1105 (the download in the PowerShell cradle) is the one gap — no
+network telemetry yet. See [validation/](validation/) and [docs/detections.md](docs/detections.md).
 
 **v1 attack scenarios:** brute-force→success (T1110→T1078), encoded PowerShell cradle
 (T1059.001), scheduled-task persistence (T1053.005), DNS-tunnel C2 beacon (T1071.004).

@@ -59,10 +59,20 @@ MITRE). Verified end-to-end against live data (697 alerts): `npm run build` clea
 BFF aggregations correct, and the rendered UI — matrix, click-to-filter (T1071.004 → 33
 alerts), and drawer — confirmed via browser. **Done.**
 
-## Phase 6 — Validation harness + docs
-Score alerts vs. ground truth → per-technique detection rate, FN, FP; coverage report +
-ATT&CK-Navigator layer. Per-detection READMEs (hypothesis, source, logic, mapping, test,
-limitations); top-level coverage map; runbook.
+## Phase 6 — Validation harness + docs ✅
+[validation/validate.py](../validation/validate.py) joins `ground_truth.jsonl` against the
+indexed alerts (via the read-only account) and emits `coverage.md`, `coverage.json`, and an
+ATT&CK-Navigator layer. Measured on a live stream run: **injected 6, detected 5, recall
+83%, FN 1 (T1105), FP 0** — T1105 (the download) is the honest gap, correctly red in the
+Navigator layer. Per-detection catalog in [detections.md](detections.md). Two correctness
+fixes came out of the first run: the `powershell_cradle` builder was crediting T1105 to the
+T1059.001 rule (fixed — T1105 now has no expected detector), and the FP metric is defined
+run-order-independently (custom alert tagged with a non-injected technique) so a shared
+indexer's prior-run alerts don't inflate it. **Done.**
+
+Project complete for v1. Next iterations: the four deferred scenarios (LSASS, new account,
+lateral movement, log clearing), an execution→persistence kill-chain for a same-host
+correlation, and network telemetry to close T1105.
 
 ## v1 attack scenarios
 
