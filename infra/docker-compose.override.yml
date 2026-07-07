@@ -24,7 +24,7 @@ services:
   # Linux endpoint that tails the synthetic log generator's output.
   # Enrollment + localfile wiring are finished and verified in Phase 1.
   wazuh.agent.linux:
-    image: wazuh/wazuh-agent:${WAZUH_DOCKER_TAG:-v4.14.6}
+    image: wazuh/wazuh-agent:${WAZUH_IMAGE_TAG:-4.14.6}
     hostname: agent-linux-01
     restart: always
     depends_on:
