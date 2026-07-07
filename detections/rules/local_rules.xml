@@ -1,17 +1,89 @@
 <!--
-  Custom detection rules (detection-as-code). One <group> per ATT&CK tactic is
-  added in Phase 3+. Custom rule IDs use the 100000+ range. Every rule carries a
-  <mitre><id>Txxxx</id></mitre> block and has a matching test in detections/tests/.
+  Custom detection rules (detection-as-code) for the detection lab.
 
-  NOTE: analysisd treats a <group> containing zero <rule> elements as a fatal
-  error ("Group without any rule"), which aborts the whole manager. So this file
-  ships one harmless no-op rule to keep the group non-empty until Phase 3 adds
-  real detections. Rule 100000 matches a program_name that never occurs and is
-  level 0 (evaluated but never alerts).
+  Custom rule IDs use the 100000+ range. Every detection carries a
+  <mitre><id>Txxxx</id></mitre> block and has a sample + expected result under
+  detections/tests/. Field names below were confirmed with `wazuh-logtest`
+  against the generator's output (all our events decode via the `json` decoder).
+
+  Layering: these are per-event SIGNATURE rules (Phase 3). Frequency/correlation
+  rules (e.g. brute-force->success composite, DNS-beacon regularity) are Phase 4.
+
+  Rule map:
+    100100  Sysmon process creation (Event ID 1) .............. base (level 0)
+    100101   -> Encoded PowerShell command line ............... T1059.001
+    100110   -> Scheduled task created via schtasks.exe ....... T1053.005
+    100120  Security 4698: scheduled task registered .......... T1053.005 (base)
+    100121   -> ...launching a suspicious interpreter ......... T1053.005
+    100300  DNS TXT query w/ long hex subdomain (tunneling) ... T1071.004
 -->
-<group name="detection-lab,">
-  <rule id="100000" level="0">
-    <program_name>detection-lab-placeholder</program_name>
-    <description>detection-lab placeholder (no-op); replaced by real rules in Phase 3</description>
+
+<!-- ===================== Execution / Persistence (Sysmon) ==================== -->
+<group name="detection_lab,sysmon,windows,">
+
+  <rule id="100100" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="win.system.providerName">Microsoft-Windows-Sysmon</field>
+    <field name="win.system.eventID" type="pcre2">^1$</field>
+    <description>Sysmon: process creation (Event ID 1).</description>
   </rule>
+
+  <rule id="100101" level="12">
+    <if_sid>100100</if_sid>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\(powershell|pwsh)\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\s-e[a-z]*\s+[A-Za-z0-9+/=]{30,}</field>
+    <description>Encoded PowerShell command line executed (possible obfuscated payload).</description>
+    <mitre>
+      <id>T1059.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100110" level="10">
+    <if_sid>100100</if_sid>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\schtasks\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)/create</field>
+    <description>Scheduled task created via schtasks.exe (possible persistence).</description>
+    <mitre>
+      <id>T1053.005</id>
+    </mitre>
+  </rule>
+
+</group>
+
+<!-- ===================== Persistence (Security 4698) ========================= -->
+<group name="detection_lab,windows,security,">
+
+  <rule id="100120" level="8">
+    <decoded_as>json</decoded_as>
+    <field name="win.system.eventID" type="pcre2">^4698$</field>
+    <description>Windows: a scheduled task was created (Security 4698).</description>
+    <mitre>
+      <id>T1053.005</id>
+    </mitre>
+  </rule>
+
+  <rule id="100121" level="12">
+    <if_sid>100120</if_sid>
+    <field name="win.eventdata.taskContent" type="pcre2">(?i)powershell|pwsh|-enc|cmd\.exe|\.ps1|downloadstring|net\.webclient|invoke-expression</field>
+    <description>Scheduled task registered to launch a suspicious interpreter/command.</description>
+    <mitre>
+      <id>T1053.005</id>
+    </mitre>
+  </rule>
+
+</group>
+
+<!-- ===================== Command and Control (DNS tunneling) ================= -->
+<group name="detection_lab,suricata,dns,">
+
+  <rule id="100300" level="10">
+    <if_group>suricata</if_group>
+    <field name="dns.rrtype">TXT</field>
+    <field name="dns.rrname" type="pcre2">^[a-f0-9]{16,}\.</field>
+    <description>Suspicious DNS TXT query with long hex subdomain (possible DNS tunneling / C2).</description>
+    <mitre>
+      <id>T1071.004</id>
+    </mitre>
+  </rule>
+
 </group>

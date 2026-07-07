@@ -13,5 +13,5 @@ params:
   user: CORP\jsmith
   task_name: \Microsoft\Windows\Updater\HealthCheck
   c2_url: http://185.220.101.42/win/beacon.ps1
-  # Detection is a custom Phase 3 rule (4698 + schtasks command line); filled in then.
-  expected_rules: []
+  # Custom Phase 3 rules: 100110 (schtasks /Create), 100121 (4698 suspicious task).
+  expected_rules: [100110, 100121]

@@ -1,0 +1,8 @@
+# expected	sample	description
+# expected = rule id that must fire, or NOALERT (fired level must be 0)
+100101	encoded_powershell.log	Encoded PowerShell command line (T1059.001)
+100110	schtasks_create.log	Scheduled task created via schtasks.exe (T1053.005)
+100121	scheduled_task_4698.log	Security 4698 task launching suspicious command (T1053.005)
+100300	dns_txt_tunnel.log	DNS TXT query with long hex subdomain (T1071.004)
+NOALERT	benign_process.log	Benign process creation must not alert
+NOALERT	benign_dns.log	Benign DNS lookup must not alert

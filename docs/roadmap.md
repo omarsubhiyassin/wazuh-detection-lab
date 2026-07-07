@@ -25,9 +25,16 @@ Baseline noise (multi-host/user, diurnal) plus the 4 v1 scenarios, emitting real
 labels. Seed-reproducible; `backfill`/`stream` modes with time compression. See
 [generator/README.md](../generator/README.md). **Done.**
 
-## Phase 3 — Decoders + signature detections
-Add custom decoders only where `wazuh-logtest` shows gaps. Single-event signature rules
-with `<mitre>` tags; a `wazuh-logtest` case per rule.
+## Phase 3 — Decoders + signature detections ✅
+No custom decoders needed — every generated event decodes via the built-in `json`
+decoder (confirmed with `wazuh-logtest`). Signature rules with `<mitre>` tags in
+[detections/rules/local_rules.xml](../detections/rules/local_rules.xml):
+100101 encoded PowerShell (T1059.001), 100110 schtasks `/Create` + 100121 Security 4698
+suspicious task (T1053.005), 100300 DNS TXT tunneling (T1071.004). Each has a frozen
+sample + expected result under [detections/tests/](../detections/tests/); the
+`run_logtest.sh` harness passes 6/6 (4 detections fire, 2 benign stay level 0). Verified
+end-to-end: appended events produced 100101/100300 alerts in `wazuh-alerts-*` with
+`rule.mitre.id` populated. **Done.**
 
 ## Phase 4 — Correlation / composite detections
 Frequency + `if_matched_sid`/`same_source_ip` rules: brute-force→success, C2 beacon

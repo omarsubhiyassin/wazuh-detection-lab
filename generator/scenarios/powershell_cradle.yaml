@@ -15,5 +15,5 @@ params:
   user: CORP\jsmith
   parent_image: C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE
   c2_url: http://185.220.101.42/win/update.ps1
-  # Detection is a custom Phase 3 rule (encoded PS / cradle); filled in then.
-  expected_rules: []
+  # Custom Phase 3 rule: 100101 (encoded PowerShell command line).
+  expected_rules: [100101]

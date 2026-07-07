@@ -14,5 +14,6 @@ params:
   interval_seconds: 60
   jitter_seconds: 8
   beacons: 30
-  # Detection is a custom Phase 4 frequency rule (regularity + entropy); filled in then.
-  expected_rules: []
+  # Custom Phase 3 signature: 100300 (long-hex TXT subdomain). Phase 4 will add a
+  # frequency/regularity correlation rule that fires once per beaconing session.
+  expected_rules: [100300]
