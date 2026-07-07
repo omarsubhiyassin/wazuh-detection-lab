@@ -45,9 +45,8 @@ per-query). Harness now 8/8 (multi-line samples; logtest keeps rule state across
 Verified end-to-end: 100400 (`mitre.id` T1078/T1110) and 100410 (T1071.004) alerts in
 `wazuh-alerts-*`. **Done.**
 
-Deferred: a persistence-after-execution chain (encoded PS → scheduled task on one host)
-needs a tight-window kill-chain scenario in the generator; the current scenarios are
-placed too far apart in the window to correlate. Future generator enhancement.
+Update: the persistence-after-execution chain is now implemented (rule 100420 +
+`exec_to_persistence` scenario) — see the v1+ note under Phase 6.
 
 ## Phase 5 — Custom dashboard ✅
 React (Vite + TS) SPA over a thin Express BFF ([../dashboard/](../dashboard/)). The BFF
@@ -70,9 +69,11 @@ T1059.001 rule (fixed — T1105 now has no expected detector), and the FP metric
 run-order-independently (custom alert tagged with a non-injected technique) so a shared
 indexer's prior-run alerts don't inflate it. **Done.**
 
-Project complete for v1. Next iterations: the four deferred scenarios (LSASS, new account,
-lateral movement, log clearing), an execution→persistence kill-chain for a same-host
-correlation, and network telemetry to close T1105.
+Project complete for v1. **v1+ added:** execution→persistence kill-chain correlation
+(rule 100420 + `exec_to_persistence` scenario, on its own host to avoid false correlation)
+— measured recall rose to **88% (7/8)**, composite verified to fire only for the kill-chain
+host. Remaining iterations: the four deferred scenarios (LSASS, new account, lateral
+movement, log clearing) and network telemetry to close T1105.
 
 ## v1 attack scenarios
 

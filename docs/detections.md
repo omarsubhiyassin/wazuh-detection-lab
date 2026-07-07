@@ -57,3 +57,11 @@ Levels: Wazuh 0–15 (0 = log-only, 12+ = high). Tests live in
 - **Logic:** `if_matched_sid 100300` + `frequency 8` / `timeframe 600` + `same_field src_ip` → one alert per session instead of per query.
 - **Test:** `dns_beacon_session.log` (31 queries) → 100410.
 - **Limitations / evasions:** inherits 100300's blind spots; a beacon slower than 8 queries / 600s, or spread across source IPs, stays under threshold. Tunable via frequency/timeframe.
+
+## 100420 — Execution → persistence kill chain (same host)
+- **ATT&CK:** T1059.001 (Execution) + T1053.005 (Persistence) · **Level:** 13 · **composite**
+- **Hypothesis:** Encoded PowerShell *followed by* scheduled-task persistence on the same host in a short window is a classic intrusion chain — far higher confidence than either event alone.
+- **Data source:** rules 100101 (encoded PS) and 100121 (suspicious 4698), correlated by `win.system.computer`.
+- **Logic:** `if_sid 100121` + `if_matched_sid 100101` + `same_field win.system.computer`, `timeframe 600`. Correlates on the host name (not the agent — all Windows events arrive through one lab agent). The tight window keeps independent same-host activity from looking like a chain.
+- **Test:** `exec_to_persistence.log` (PowerShell → schtasks → 4698, all one host) → 100420.
+- **Limitations / evasions:** persistence via a mechanism other than a scheduled task (run key, service, WMI) isn't chained here; a dwell time longer than the timeframe between execution and persistence evades it. Validated to fire only for the dedicated kill-chain host, not for independent same-host scenarios.

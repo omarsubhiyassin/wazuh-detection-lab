@@ -24,6 +24,7 @@ Detected-by (rule ID → technique):
   `if_matched_sid` 5712 + `same_source_ip`). Phase 4 composite.
 - **T1059.001** → custom **100101** (encoded PowerShell command line).
 - **T1053.005** → custom **100110** (schtasks `/Create`) and **100121** (Security 4698 launching a suspicious interpreter).
+- **T1059.001 + T1053.005 chain** → custom **100420** (composite): encoded PowerShell followed by scheduled-task persistence on the same host (`same_field win.system.computer`).
 - **T1071.004** → custom **100300** (per-query long-hex TXT signature) and **100410**
   (Phase 4 beacon-regularity correlation: 8+ such queries from one host in 600s).
 
