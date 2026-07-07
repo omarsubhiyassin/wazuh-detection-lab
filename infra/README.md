@@ -42,9 +42,14 @@ cd ~/detection-lab/infra
 ## Bring it up
 
 ```bash
-cp .env.example .env      # then edit: set DETECTION_LAB_ROOT + all passwords
+cp .env.example .env      # then edit: set DETECTION_LAB_ROOT (passwords: see note below)
 ./bootstrap.sh
 ```
+
+**Default login:** `admin` / `SecretPassword` at https://localhost. The indexer
+password is *not* set from `.env` — the vendored compose hardcodes it and ships a
+matching bcrypt hash in `config/wazuh_indexer/internal_users.yml`. See "Change the
+indexer password" below to set your own.
 
 The bootstrap script:
 1. loads and validates `.env`,
@@ -72,6 +77,45 @@ docker compose logs -f wazuh.manager    # manager logs
 docker compose down                     # stop (keeps volumes/data)
 docker compose down -v                  # stop + WIPE data (fresh start)
 ```
+
+## Change the indexer password
+
+The default `admin` / `SecretPassword` is fine for a throwaway lab but shouldn't ship in
+a portfolio. Env vars only tell *clients* what to present; the indexer authenticates
+against the bcrypt hash in `config/wazuh_indexer/internal_users.yml`, and once the
+`.security` index is initialized a restart won't re-read that file — you must push it with
+`securityadmin.sh`. From `wazuh-docker/single-node/` with the stack up:
+
+```bash
+IDX=single-node-wazuh.indexer-1
+NEW='YourStrongPasswordHere'
+
+# 1) generate a bcrypt hash for the new password
+HASH=$(docker exec "$IDX" bash -lc \
+  "JAVA_HOME=/usr/share/wazuh-indexer/jdk \
+   bash /usr/share/wazuh-indexer/plugins/opensearch-security/tools/hash.sh -p '$NEW'" \
+   | tail -1)
+
+# 2) put $HASH into config/wazuh_indexer/internal_users.yml under `admin: hash:`
+#    (edit the file on the host; keep the surrounding YAML intact)
+
+# 3) push the updated security config into the running indexer
+docker exec "$IDX" bash -lc '
+  I=/usr/share/wazuh-indexer
+  JAVA_HOME=$I/jdk bash $I/plugins/opensearch-security/tools/securityadmin.sh \
+    -cd $I/opensearch-security/ -icl -nhnv \
+    -cacert $I/certs/root-ca.pem -cert $I/certs/admin.pem -key $I/certs/admin-key.pem \
+    -h localhost -p 9200'
+
+# 4) point the clients at the new password, then recreate them:
+#    set INDEXER_PASSWORD for wazuh.manager + wazuh.dashboard (via the override's
+#    environment:, pulling ${INDEXER_PASSWORD} from .env), then:
+docker compose up -d --force-recreate wazuh.manager wazuh.dashboard
+```
+
+> Ask Claude to wire this into `bootstrap.sh` so `.env`'s `INDEXER_PASSWORD` drives it
+> end-to-end (hash + internal_users.yml + securityadmin + client env via the override),
+> keeping the vendored files pristine.
 
 ## Customization model
 

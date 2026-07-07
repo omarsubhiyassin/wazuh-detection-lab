@@ -7,11 +7,17 @@ Phased build. Each phase is independently demoable and feeds the measurement loo
 Repo structure, pinned Wazuh single-node stack as code, bootstrap script, compose
 overlay for custom content, runbook. **Done.**
 
-## Phase 1 — Wazuh up + ingestion smoke test
-Stack healthy (indexer green, dashboard reachable); enroll the Linux agent; feed one
-canonical `sshd` failed-login line and confirm the built-in ruleset fires and the alert
-lands in `wazuh-alerts-*`. Finalize the agent `<client>` enrollment + localfile wiring.
-Proves ingestion → decode → index → query before any custom logic.
+## Phase 1 — Wazuh up + ingestion smoke test ✅
+Stack healthy (indexer green, dashboard reachable at `admin`/`SecretPassword`); Linux
+agent `agent-linux-01` enrolled into the `detection-lab` group and Active. Verified
+end-to-end: a burst of canonical `sshd` failed-login lines fired the built-in ruleset —
+5710 (non-existent user) and 5712 (brute force) — and the alerts landed in
+`wazuh-alerts-*`. Proves ingestion → decode → correlate → index → query. **Done.**
+
+Two fixes were needed to get here (both in this repo now): the Phase 0 placeholder
+`local_rules.xml` was an empty `<group>` (fatal to `analysisd`, crashed the manager), and
+the `detection-lab` agent group had to exist on the manager before authd would enroll the
+agent (bootstrap now creates it).
 
 ## Phase 2 — Synthetic log generator ✅
 Baseline noise (multi-host/user, diurnal) plus the 4 v1 scenarios, emitting real formats
