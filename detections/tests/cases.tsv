@@ -11,6 +11,8 @@
 100420	exec_to_persistence.log	Kill chain: execution then persistence, same host (T1059.001+T1053.005)
 100430	exec_to_download.log	Download cradle: encoded PS process opens a network connection (T1059.001+T1105)
 100500	lateral_movement_psexec.log	Remote command execution via PsExec service (T1021.002)
+100600	log_clearing.log	Security audit log cleared, event 1102 (T1070.001)
+100601	log_clearing.log	Event log cleared via wevtutil command (T1070.001)
 NOALERT	benign_process.log	Benign process creation must not alert
 NOALERT	benign_dns.log	Benign DNS lookup must not alert
 NOALERT	benign_http.log	Legit script download from a domain must not alert

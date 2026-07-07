@@ -281,6 +281,35 @@ def lateral_movement(cfg: dict, world: World, tl: Timeline, start: float) -> Non
              note=f"PsExec remote command execution on {tgt} from {src}")
 
 
+def log_clearing(cfg: dict, world: World, tl: Timeline, start: float) -> None:
+    """Clear the Windows Security log via wevtutil -> emits the command and the 1102."""
+    p = cfg["params"]
+    name = cfg["name"]
+    host = p["host"]
+    user = p["user"]
+    domain, _, sam = user.partition("\\")
+    if not sam:
+        domain, sam = "CORP", user
+
+    # 1) the command that clears the log.
+    tl.emit(start, "windows_events.json", partial(
+        windows.sysmon_process_create,
+        computer=host, record_id=world.record_id(), image=windows.WEVTUTIL,
+        command_line="wevtutil.exe cl Security", parent_image=r"C:\Windows\System32\cmd.exe",
+        parent_command_line=r"C:\Windows\System32\cmd.exe /c", user=user,
+        process_guid=world.guid(), parent_process_guid=world.guid(),
+        process_id=world.pid(), parent_process_id=world.pid()))
+
+    # 2) the effect: Security 1102 (audit log cleared).
+    tl.emit(start + 0.3, "windows_events.json", partial(
+        windows.security_log_cleared,
+        computer=host, record_id=world.record_id(), subject_user=sam, subject_domain=domain))
+
+    tl.label(start, technique_id="T1070.001", tactic="Defense Evasion", scenario=name,
+             host=host, source="sysmon+security", expected_rules=p.get("expected_rules", []),
+             note=f"Security event log cleared on {host} via wevtutil")
+
+
 BUILDERS = {
     "brute_force_success": brute_force_success,
     "powershell_cradle": powershell_cradle,
@@ -288,4 +317,5 @@ BUILDERS = {
     "dns_beacon": dns_beacon,
     "exec_to_persistence": exec_to_persistence,
     "lateral_movement": lateral_movement,
+    "log_clearing": log_clearing,
 }

@@ -15,6 +15,9 @@ SYSMON_PROVIDER = "Microsoft-Windows-Sysmon"
 SYSMON_GUID = "{5770385f-c22a-43e0-bf4c-06f5698ffbd9}"
 SEC_PROVIDER = "Microsoft-Windows-Security-Auditing"
 SEC_GUID = "{54849625-5478-4994-a5ba-3e3b0328c30d}"
+EVENTLOG_PROVIDER = "Microsoft-Windows-Eventlog"
+EVENTLOG_GUID = "{fc65ddd8-d6ef-4962-83d5-6e5cfe9ce148}"
+WEVTUTIL = r"C:\Windows\System32\wevtutil.exe"
 
 POWERSHELL = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 SCHTASKS = r"C:\Windows\System32\schtasks.exe"
@@ -107,6 +110,20 @@ def sysmon_network_connection(ts: float, *, computer: str, record_id: int, proce
     sysm = _system(ts, provider=SYSMON_PROVIDER, provider_guid=SYSMON_GUID, event_id=3,
                    channel="Microsoft-Windows-Sysmon/Operational", computer=computer,
                    record_id=record_id, task=3)
+    return _event(sysm, ed)
+
+
+def security_log_cleared(ts: float, *, computer: str, record_id: int,
+                         subject_user: str, subject_domain: str) -> str:
+    """Security 1102 -- the audit log was cleared."""
+    ed = {
+        "subjectUserSid": "S-1-5-21-1004336348-1177238915-682003330-1001",
+        "subjectUserName": subject_user,
+        "subjectDomainName": subject_domain,
+        "subjectLogonId": "0x3e7",
+    }
+    sysm = _system(ts, provider=EVENTLOG_PROVIDER, provider_guid=EVENTLOG_GUID, event_id=1102,
+                   channel="Security", computer=computer, record_id=record_id, task=104)
     return _event(sysm, ed)
 
 

@@ -82,13 +82,14 @@ Project complete for v1. **v1+ added:**
    for the cradle process, not benign network noise.
 
 4. Lateral movement (T1021.002): PsExec scenario + rule 100500 (a process parented by
-   `PSEXESVC.exe`). Adds a Lateral Movement column to the dashboard matrix (7 techniques,
-   7 tactics).
+   `PSEXESVC.exe`).
+5. Log clearing (T1070.001): scenario + rules 100600 (Security 1102 effect) and 100601
+   (`wevtutil` command). Adds a Defense Evasion column.
 
-Measured recall is now **100% (9/9 injected events across 7 techniques), 0 FP**. Remaining
-iterations: the three deferred scenarios (LSASS credential access, new local admin account,
-log clearing), other lateral-movement vectors (WMI/WinRM/renamed PsExec), and
-domain-hosted/HTTPS download detection.
+Measured recall is now **100% (10/10 injected events across 8 techniques / 7 tactics), 0 FP**.
+Remaining iterations: the two deferred scenarios (LSASS credential access, new local admin
+account), other lateral-movement vectors (WMI/WinRM/renamed PsExec), and domain-hosted/HTTPS
+download detection.
 
 ## v1 attack scenarios
 

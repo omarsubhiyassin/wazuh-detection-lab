@@ -74,6 +74,16 @@ Levels: Wazuh 0–15 (0 = log-only, 12+ = high). Tests live in
 - **Test:** `exec_to_persistence.log` (PowerShell → schtasks → 4698, all one host) → 100420.
 - **Limitations / evasions:** persistence via a mechanism other than a scheduled task (run key, service, WMI) isn't chained here; a dwell time longer than the timeframe between execution and persistence evades it. Validated to fire only for the dedicated kill-chain host, not for independent same-host scenarios.
 
+## 100600 / 100601 — Windows event log cleared (indicator removal)
+- **ATT&CK:** T1070.001 (Defense Evasion / Clear Windows Event Logs) · **Level:** 12 each
+- **Hypothesis:** Clearing the Security event log is anti-forensics; detect both the *effect* the OS records and the *command* that did it.
+- **Data source:** Security 1102 → `win.system.eventID`; Sysmon 1 → `win.eventdata.image` / `commandLine`.
+- **Logic:**
+  - **100600** — Security `eventID` = 1102 ("the audit log was cleared"). The authoritative signal.
+  - **100601** — Sysmon 1 where `image` ends in `wevtutil.exe` and `commandLine` contains `cl`/`clear-log`. Catches the clear even if 1102 auditing is disabled (a common evasion is to disable auditing first).
+- **Test:** `log_clearing.log` (wevtutil + 1102) → 100600 and 100601.
+- **Limitations / evasions:** clearing via API/`Clear-EventLog`/direct `.evtx` deletion won't hit `wevtutil` (100601), but still trips 1102 (100600) unless the log service itself is stopped/tampered — a deeper evasion worth a follow-up rule (7035/7036 service state, or 1100 log-service-shutdown).
+
 ## 100500 — Remote command execution via PsExec (lateral movement)
 - **ATT&CK:** T1021.002 (Lateral Movement / SMB & Windows Admin Shares) · **Level:** 12
 - **Hypothesis:** A process whose parent is `PSEXESVC.exe` is a command run on this host *by* PsExec from elsewhere — a hallmark of lateral movement.

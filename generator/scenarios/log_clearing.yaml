@@ -1,0 +1,15 @@
+name: log_clearing
+kind: log_clearing
+description: >
+  Anti-forensics: the attacker clears the Windows Security event log with
+  wevtutil, which also produces the 1102 "audit log cleared" event. Detect both
+  the command (Sysmon) and the effect (Security 1102).
+mitre:
+  - technique: T1070.001
+    name: Clear Windows Event Logs
+    tactic: Defense Evasion
+params:
+  host: WIN-FIN-01
+  user: CORP\svc_admin
+  # command (wevtutil) -> 100601; effect (Security 1102) -> 100600
+  expected_rules: [100600, 100601]

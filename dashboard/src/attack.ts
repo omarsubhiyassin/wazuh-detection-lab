@@ -29,6 +29,7 @@ export const TECHNIQUES: Record<string, TechDef> = {
   T1078: { name: "Valid Accounts", tactics: ["Initial Access"] },
   "T1059.001": { name: "PowerShell", tactics: ["Execution"] },
   "T1053.005": { name: "Scheduled Task", tactics: ["Persistence"] },
+  "T1070.001": { name: "Clear Event Logs", tactics: ["Defense Evasion"] },
   "T1021.002": { name: "SMB/Admin Shares", tactics: ["Lateral Movement"] },
   "T1071.004": { name: "DNS", tactics: ["Command and Control"] },
   T1105: { name: "Ingress Tool Transfer", tactics: ["Command and Control"] },

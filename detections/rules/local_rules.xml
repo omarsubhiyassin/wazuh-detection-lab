@@ -57,6 +57,32 @@
 
 </group>
 
+<!-- ===================== Defense Evasion (log clearing) ===================== -->
+<group name="detection_lab,windows,defense_evasion,">
+
+  <!-- The effect: Windows itself logs 1102 when the Security audit log is cleared. -->
+  <rule id="100600" level="12">
+    <decoded_as>json</decoded_as>
+    <field name="win.system.eventID" type="pcre2">^1102$</field>
+    <description>Windows Security audit log was cleared (indicator removal).</description>
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+  </rule>
+
+  <!-- The command: catches the clear even if 1102 auditing is disabled. -->
+  <rule id="100601" level="12">
+    <if_sid>100100</if_sid>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\wevtutil\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\s(cl|clear-log)\s</field>
+    <description>Event log cleared via wevtutil (indicator removal).</description>
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+  </rule>
+
+</group>
+
 <!-- ===================== Lateral Movement (PsExec) ========================== -->
 <group name="detection_lab,sysmon,windows,lateral_movement,">
 
