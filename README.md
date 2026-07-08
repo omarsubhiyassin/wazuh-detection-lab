@@ -50,7 +50,8 @@ Building in phases (see [docs/roadmap.md](docs/roadmap.md)):
 - [x] **Phase 6** — Validation harness + docs
 
 **Measured coverage** (live stream run): recall **100%** (11/11 injected events across 9
-techniques / 7 tactics), false positives **0**. Includes three correlation
+techniques / 7 tactics), false positives **0** — see the committed
+[coverage report](docs/coverage-report.md). Includes three correlation
 detections: execution→persistence kill-chain (100420), download↔execution via process
 GUID (100430), and network-based ingress-tool-transfer (100310, closing T1105). See
 [validation/](validation/) and [docs/detections.md](docs/detections.md).
