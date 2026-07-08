@@ -59,6 +59,18 @@ GUID (100430), and network-based ingress-tool-transfer (100310, closing T1105). 
 **v1 attack scenarios:** brute-force→success (T1110→T1078), encoded PowerShell cradle
 (T1059.001), scheduled-task persistence (T1053.005), DNS-tunnel C2 beacon (T1071.004).
 
+## Documentation
+
+| Doc | What's in it |
+|-----|--------------|
+| [docs/architecture.md](docs/architecture.md) | Component breakdown + design rationale (prose) |
+| [docs/architecture-diagram.md](docs/architecture-diagram.md) | Mermaid component / sequence / class diagrams |
+| [docs/use-case-diagram.md](docs/use-case-diagram.md) | Actors and dashboard use cases (Mermaid) |
+| [docs/dashboard-walkthrough.md](docs/dashboard-walkthrough.md) | Every control and view in the dashboard |
+| [docs/detections.md](docs/detections.md) | Per-detection catalog (hypothesis, logic, ATT&CK, limits) |
+| [docs/attack-coverage.md](docs/attack-coverage.md) · [docs/coverage-report.md](docs/coverage-report.md) | ATT&CK coverage map + measured results |
+| [docs/roadmap.md](docs/roadmap.md) | Phased build log + next iterations |
+
 ## Quick start
 
 Requires Docker Desktop (WSL2 backend) with ~8 GB RAM allocated. See the full runbook in
