@@ -74,10 +74,36 @@ That is the whole deploy. `bootstrap.sh` is idempotent (safe to re-run) and:
     (default 12) are posted to `SLACK_WEBHOOK_URL` via the Wazuh integrator
     (managed as a marked block in the manager's `ossec.conf`; unsetting the URL
     and re-running removes it),
-12. seeds `dashboard/.env` for the custom dashboard (never overwrites an existing one),
-13. prints a **verification report**: cluster health, default creds disabled, RO
+12. configures **active response** (opt-in, `ACTIVE_RESPONSE_ENABLED=true`) — an
+    SSH brute-force alert (rules `5712`/`5763` by default) auto-blocks the source
+    IP via `firewall-drop`, scoped to a safety allowlist (loopback + this
+    project's Docker network + your own `ACTIVE_RESPONSE_ALLOWLIST`), auto-reverted
+    after `ACTIVE_RESPONSE_TIMEOUT` seconds. Same marked-block pattern as Slack,
+13. seeds `dashboard/.env` for the custom dashboard (never overwrites an existing one),
+14. prints a **verification report**: cluster health, default creds disabled, RO
     account 200-on-read / 403-on-write, agent Active, authd password in force,
-    retention policy attached, integrator running.
+    retention policy attached, integrator running, active response configured.
+
+### Active response — read before enabling
+
+`ACTIVE_RESPONSE_ENABLED` defaults to **false**, unlike retention/Slack. Auto-blocking
+a real IP has real consequences if a rule ever false-positives, so this needs a
+deliberate opt-in:
+
+1. Set `ACTIVE_RESPONSE_ALLOWLIST` in `.env` to your own management IP / VPN range /
+   anything that must never be blocked, on top of the loopback + internal Docker
+   network bootstrap always exempts.
+2. Set `ACTIVE_RESPONSE_ENABLED=true` and re-run `./bootstrap.sh`.
+
+**Known limitation of this lab's containers:** the vendored `wazuh/wazuh-agent` image
+is a minimal Amazon Linux base with no `iptables` binary and no `NET_ADMIN` capability.
+Wazuh will correctly detect the brute-force and invoke `firewall-drop`, but the
+`iptables` call inside it will fail — visible in the agent's
+`active-responses.log` as an execution error, not a config problem. Real Linux/Windows
+endpoints (see [production-roadmap.md](../docs/production-roadmap.md) Phase 3) have a
+firewall and root by default and will actually block. Deliberately not working around
+this with a custom image + `NET_ADMIN` here, since that's a real capability increase
+for a cosmetic win in a demo container.
 
 **Login after deploy:** `admin` / your `INDEXER_PASSWORD` at https://localhost.
 `SecretPassword` no longer works.

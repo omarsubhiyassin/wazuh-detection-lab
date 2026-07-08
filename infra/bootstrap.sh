@@ -214,6 +214,85 @@ if [[ -n "${AGENT_ENROLLMENT_PASSWORD:-}" ]]; then
   fi
 fi
 
+# --- Active response (auto-block brute-force sources) -------------------------
+# Same marked-block pattern as Slack below: a distinct <ossec_config> section
+# appended to the manager's ossec.conf, rewritten only on change, removed
+# entirely (with a restart) when disabled. Uses the manager's already-shipped
+# "firewall-drop" command (confirmed present by default) at <location>local</location>
+# — meaning it runs on the agent that generated the triggering event, i.e. the
+# host actually being brute-forced blocks the source at its own firewall.
+AR_MARK="detection-lab:active-response"
+is_ip_or_cidr() { [[ "$1" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}(/[0-9]{1,2})?$ || "$1" =~ ^[0-9a-fA-F:]+(/[0-9]{1,3})?$ ]]; }
+
+if [[ "${ACTIVE_RESPONSE_ENABLED:-false}" == "true" ]]; then
+  AR_RULES="${ACTIVE_RESPONSE_RULES:-5712,5763}"
+  AR_TIMEOUT="${ACTIVE_RESPONSE_TIMEOUT:-600}"
+  [[ "$AR_RULES" =~ ^[0-9]+(,[0-9]+)*$ ]] || fail "ACTIVE_RESPONSE_RULES must be a comma-separated list of rule IDs (got '$AR_RULES')"
+  [[ "$AR_TIMEOUT" =~ ^[0-9]+$ ]] || fail "ACTIVE_RESPONSE_TIMEOUT must be a number of seconds (got '$AR_TIMEOUT')"
+
+  # Safety allowlist: loopback + this compose project's internal network are
+  # always exempt; anything in .env is added on top, after format validation
+  # (these values are embedded into XML — reject anything that isn't a plain
+  # IP/CIDR rather than pass it through unescaped).
+  AR_NET="$(docker inspect "$MANAGER" --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' 2>/dev/null)"
+  AR_SUBNET="$(docker network inspect "$AR_NET" --format '{{(index .IPAM.Config 0).Subnet}}' 2>/dev/null || true)"
+  AR_WHITELIST_XML="  <white_list>127.0.0.1</white_list>
+  <white_list>::1</white_list>"
+  [[ -n "$AR_SUBNET" ]] && AR_WHITELIST_XML+="
+  <white_list>${AR_SUBNET}</white_list>"
+  if [[ -n "${ACTIVE_RESPONSE_ALLOWLIST:-}" ]]; then
+    IFS=',' read -ra AR_EXTRA <<<"$ACTIVE_RESPONSE_ALLOWLIST"
+    for ip in "${AR_EXTRA[@]}"; do
+      ip="$(echo "$ip" | xargs)" # trim whitespace
+      [[ -z "$ip" ]] && continue
+      is_ip_or_cidr "$ip" || fail "ACTIVE_RESPONSE_ALLOWLIST entry '$ip' doesn't look like an IP or CIDR"
+      AR_WHITELIST_XML+="
+  <white_list>${ip}</white_list>"
+    done
+  fi
+
+  DESIRED_AR=$(cat <<XML
+<!-- ${AR_MARK}:start (managed by bootstrap — do not edit) -->
+<ossec_config>
+  <global>
+${AR_WHITELIST_XML}
+  </global>
+  <active-response>
+    <disabled>no</disabled>
+    <command>firewall-drop</command>
+    <location>local</location>
+    <rules_id>${AR_RULES}</rules_id>
+    <timeout>${AR_TIMEOUT}</timeout>
+  </active-response>
+</ossec_config>
+<!-- ${AR_MARK}:end -->
+XML
+)
+  CURRENT_AR="$(docker exec "$MANAGER" sh -c \
+    "sed -n '/${AR_MARK}:start/,/${AR_MARK}:end/p' /var/ossec/etc/ossec.conf")"
+  if [[ "$CURRENT_AR" != "$DESIRED_AR" ]]; then
+    log "Configuring active response (auto-block on rules ${AR_RULES}, ${AR_TIMEOUT}s timeout) ..."
+    docker exec -i "$MANAGER" sh -c "
+      sed -i '/${AR_MARK}:start/,/${AR_MARK}:end/d' /var/ossec/etc/ossec.conf \
+      && cat >> /var/ossec/etc/ossec.conf \
+      && /var/ossec/bin/wazuh-control restart" <<<"$DESIRED_AR" >/dev/null
+  else
+    log "Active response already configured (rules ${AR_RULES}, ${AR_TIMEOUT}s timeout)."
+  fi
+  log "NOTE: this lab's agent container has no iptables/NET_ADMIN — the block will be"
+  log "      correctly INVOKED but fail to execute here. Real Linux/Windows endpoints"
+  log "      (Phase 3) have a firewall and root by default and will actually block."
+else
+  if docker exec "$MANAGER" grep -q "${AR_MARK}:start" /var/ossec/etc/ossec.conf 2>/dev/null; then
+    log "ACTIVE_RESPONSE_ENABLED not true — removing the active-response config ..."
+    docker exec "$MANAGER" sh -c "
+      sed -i '/${AR_MARK}:start/,/${AR_MARK}:end/d' /var/ossec/etc/ossec.conf \
+      && /var/ossec/bin/wazuh-control restart" >/dev/null
+  else
+    log "ACTIVE_RESPONSE_ENABLED not true — active response disabled."
+  fi
+fi
+
 # --- Slack notifications (integrator) -----------------------------------------
 # Managed as a marked block appended to the manager's ossec.conf (multiple
 # <ossec_config> sections are valid). Idempotent: rewritten only on change,
@@ -398,6 +477,10 @@ fi
 if [[ -n "${SLACK_WEBHOOK_URL:-}" ]]; then
   check "slack notifications (level >= ${NOTIFY_MIN_LEVEL:-12})" \
     "$(docker exec "$MANAGER" sh -c 'grep -q "<name>slack</name>" /var/ossec/etc/ossec.conf && /var/ossec/bin/wazuh-control status | grep -q "wazuh-integratord is running"' && echo yes || echo NO)"
+fi
+if [[ "${ACTIVE_RESPONSE_ENABLED:-false}" == "true" ]]; then
+  check "active response (rules ${ACTIVE_RESPONSE_RULES:-5712,5763})" \
+    "$(docker exec "$MANAGER" grep -q "${AR_MARK}:start" /var/ossec/etc/ossec.conf && echo yes || echo NO)"
 fi
 
 cat <<EOF
