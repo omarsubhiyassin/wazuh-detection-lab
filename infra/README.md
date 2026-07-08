@@ -39,26 +39,38 @@ cp -r /mnt/c/Users/user/file-integrity-monitor ~/detection-lab   # or git clone
 cd ~/detection-lab/infra
 ```
 
-## Bring it up
+## Bring it up (one command)
 
 ```bash
-cp .env.example .env      # then edit: set DETECTION_LAB_ROOT (passwords: see note below)
+cp .env.example .env      # then edit: set DETECTION_LAB_ROOT + every password
 ./bootstrap.sh
 ```
 
-**Default login:** `admin` / `SecretPassword` at https://localhost. The indexer
-password is *not* set from `.env` — the vendored compose hardcodes it and ships a
-matching bcrypt hash in `config/wazuh_indexer/internal_users.yml`. See "Change the
-indexer password" below to set your own.
-
-The bootstrap script:
-1. loads and validates `.env`,
+That is the whole deploy. `bootstrap.sh` is idempotent (safe to re-run) and:
+1. loads `.env` and **refuses default/placeholder secrets** (override with
+   `ALLOW_DEFAULT_CREDS=true` for a throwaway lab),
 2. checks/sets `vm.max_map_count`,
 3. clones `wazuh/wazuh-docker` at the pinned `WAZUH_DOCKER_TAG` into `wazuh-docker/`
    (gitignored — vendored files stay pristine),
 4. copies our `docker-compose.override.yml` next to the vendored compose,
 5. generates indexer TLS certs (one-time),
-6. `docker compose up -d` with both compose files.
+6. `docker compose up -d` with both compose files,
+7. **rotates the vendored default passwords** (`admin`, `kibanaserver`) to the `.env`
+   values — bcrypt hash via the indexer's `hash.sh`, patches the vendored-clone
+   `internal_users.yml`, pushes it with `securityadmin.sh` (that file only — a full
+   push would wipe REST-created accounts), then recreates manager + dashboard so
+   filebeat and the built-in dashboard use the new credentials,
+8. **enforces authenticated agent enrollment** — writes `AGENT_ENROLLMENT_PASSWORD`
+   to the manager's `authd.pass` and flips `<use_password>` on; the compose agent
+   presents it automatically, real endpoints use it when enrolling,
+9. creates the agent group and the **read-only dashboard account** (role + user via
+   the security REST API, idempotent),
+10. seeds `dashboard/.env` for the custom dashboard (never overwrites an existing one),
+11. prints a **verification report**: cluster health, default creds disabled, RO
+    account 200-on-read / 403-on-write, agent Active, authd password in force.
+
+**Login after deploy:** `admin` / your `INDEXER_PASSWORD` at https://localhost.
+`SecretPassword` no longer works.
 
 ## Endpoints
 
@@ -78,51 +90,35 @@ docker compose down                     # stop (keeps volumes/data)
 docker compose down -v                  # stop + WIPE data (fresh start)
 ```
 
-## Change the indexer password
+## How the password rotation works (automated by bootstrap)
 
-The default `admin` / `SecretPassword` is fine for a throwaway lab but shouldn't ship in
-a portfolio. Env vars only tell *clients* what to present; the indexer authenticates
-against the bcrypt hash in `config/wazuh_indexer/internal_users.yml`, and once the
-`.security` index is initialized a restart won't re-read that file — you must push it with
-`securityadmin.sh`. From `wazuh-docker/single-node/` with the stack up:
+Env vars only tell *clients* what to present; the indexer authenticates against the
+bcrypt hash in `config/wazuh_indexer/internal_users.yml`, and once the `.security`
+index is initialized a restart won't re-read that file — it must be pushed with
+`securityadmin.sh`. Bootstrap does exactly that: `hash.sh` → patch the vendored-clone
+YAML → `securityadmin.sh -f internal_users.yml -t internalusers` → force-recreate the
+client containers. To rotate again later, change the password in `.env` and re-run
+`./bootstrap.sh` — it detects that the `.env` password doesn't match and rotates.
 
-```bash
-IDX=single-node-wazuh.indexer-1
-NEW='YourStrongPasswordHere'
+**Not yet rotated:** the Wazuh API account (`wazuh-wui`) keeps its vendored default —
+it's only used between the built-in dashboard and the manager inside the compose
+network. Rotating it is a future hardening step.
 
-# 1) generate a bcrypt hash for the new password
-HASH=$(docker exec "$IDX" bash -lc \
-  "JAVA_HOME=/usr/share/wazuh-indexer/jdk \
-   bash /usr/share/wazuh-indexer/plugins/opensearch-security/tools/hash.sh -p '$NEW'" \
-   | tail -1)
+## Enrolling additional agents
 
-# 2) put $HASH into config/wazuh_indexer/internal_users.yml under `admin: hash:`
-#    (edit the file on the host; keep the surrounding YAML intact)
+Enrollment requires `AGENT_ENROLLMENT_PASSWORD` (authd password) after deploy. On a
+real endpoint, install the Wazuh agent pinned to the same version and enroll against
+this host with the password (e.g. env `WAZUH_REGISTRATION_PASSWORD` for the container
+image / package deployment vars, or `agent-auth -m <host> -P <password>`). Already
+enrolled agents keep their keys — the password only gates *new* enrollments.
 
-# 3) push the updated security config into the running indexer
-docker exec "$IDX" bash -lc '
-  I=/usr/share/wazuh-indexer
-  JAVA_HOME=$I/jdk bash $I/plugins/opensearch-security/tools/securityadmin.sh \
-    -cd $I/opensearch-security/ -icl -nhnv \
-    -cacert $I/certs/root-ca.pem -cert $I/certs/admin.pem -key $I/certs/admin-key.pem \
-    -h localhost -p 9200'
-
-# 4) point the clients at the new password, then recreate them:
-#    set INDEXER_PASSWORD for wazuh.manager + wazuh.dashboard (via the override's
-#    environment:, pulling ${INDEXER_PASSWORD} from .env), then:
-docker compose up -d --force-recreate wazuh.manager wazuh.dashboard
-```
-
-> Ask Claude to wire this into `bootstrap.sh` so `.env`'s `INDEXER_PASSWORD` drives it
-> end-to-end (hash + internal_users.yml + securityadmin + client env via the override),
-> keeping the vendored files pristine.
-
-## Read-only account for the custom dashboard
+## Read-only account for the custom dashboard (automated by bootstrap)
 
 The custom dashboard ([../dashboard/](../dashboard/)) queries the indexer through a
 least-privilege account (`detectionlab_ro`): read-only, scoped to `wazuh-alerts-*`, no
-write and no access to other indices. Create it via the OpenSearch security REST API
-(the password must satisfy the indexer's strength policy — upper/lower/digit/special):
+write and no access to other indices. Bootstrap creates/updates it from
+`CUSTOM_DASHBOARD_RO_*` in `.env`; for reference, this is the equivalent manual
+procedure via the security REST API (password policy: upper/lower/digit/special):
 
 ```bash
 U=admin:SecretPassword

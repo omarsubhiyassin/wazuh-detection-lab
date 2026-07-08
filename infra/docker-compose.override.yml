@@ -12,6 +12,9 @@ services:
     environment:
       # Load our custom rules/decoders on top of the shipped ruleset.
       - FILEBEAT_SSL_VERIFICATION_MODE=full
+      # The vendored compose hardcodes SecretPassword; bootstrap rotates the
+      # real account to ${INDEXER_PASSWORD} and this keeps filebeat in sync.
+      - INDEXER_PASSWORD=${INDEXER_PASSWORD:-SecretPassword}
     volumes:
       # Custom detection content (detection-as-code) mounted read-only.
       - ${DETECTION_LAB_ROOT}/detections/rules/local_rules.xml:/var/ossec/etc/rules/local_rules.xml:ro
@@ -20,6 +23,12 @@ services:
   wazuh.indexer:
     environment:
       - "OPENSEARCH_JAVA_OPTS=${INDEXER_JAVA_OPTS:--Xms2g -Xmx2g}"
+
+  wazuh.dashboard:
+    environment:
+      # Keep the built-in dashboard's clients in sync with the rotated accounts.
+      - INDEXER_PASSWORD=${INDEXER_PASSWORD:-SecretPassword}
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-kibanaserver}
 
   # Linux endpoint that tails the synthetic log generator's output.
   # Enrollment + localfile wiring are finished and verified in Phase 1.
@@ -33,6 +42,9 @@ services:
       - WAZUH_MANAGER=${WAZUH_MANAGER_HOST:-wazuh.manager}
       - WAZUH_AGENT_NAME=agent-linux-01
       - WAZUH_AGENT_GROUP=detection-lab
+      # Authenticated enrollment: the image writes this to authd.pass only when
+      # non-empty, so leaving it unset keeps open enrollment (lab mode).
+      - WAZUH_REGISTRATION_PASSWORD=${AGENT_ENROLLMENT_PASSWORD:-}
     volumes:
       # Generator output the agent will tail (read-only). Keep on the WSL
       # filesystem so inotify fires — see infra/README.md.
