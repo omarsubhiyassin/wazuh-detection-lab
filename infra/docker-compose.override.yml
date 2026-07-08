@@ -9,6 +9,14 @@
 
 services:
   wazuh.manager:
+    # Replace the vendored 0.0.0.0 bindings (!override swaps the list instead
+    # of merging). Only agent traffic (1514) and enrollment (1515) stay open
+    # to the network; syslog + the API are localhost-only until needed.
+    ports: !override
+      - "1514:1514"
+      - "1515:1515"
+      - "127.0.0.1:514:514/udp"
+      - "127.0.0.1:55000:55000"
     environment:
       # Load our custom rules/decoders on top of the shipped ruleset.
       - FILEBEAT_SSL_VERIFICATION_MODE=full
@@ -23,6 +31,9 @@ services:
       - ${DETECTION_LAB_ROOT}/detections/decoders/local_decoder.xml:/var/ossec/etc/decoders/local_decoder.xml:ro
 
   wazuh.indexer:
+    # Only the BFF and local tooling talk to the indexer — never the network.
+    ports: !override
+      - "127.0.0.1:9200:9200"
     environment:
       - "OPENSEARCH_JAVA_OPTS=${INDEXER_JAVA_OPTS:--Xms2g -Xmx2g}"
     volumes:
@@ -30,6 +41,8 @@ services:
       - ${BACKUP_DIR:-/var/tmp/detection-lab-backups}/snapshots:/mnt/snapshots
 
   wazuh.dashboard:
+    ports: !override
+      - "127.0.0.1:443:5601"
     environment:
       # Keep the built-in dashboard's clients in sync with the rotated accounts.
       - INDEXER_PASSWORD=${INDEXER_PASSWORD:-SecretPassword}

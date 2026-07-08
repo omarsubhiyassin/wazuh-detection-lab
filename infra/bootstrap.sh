@@ -513,7 +513,22 @@ else
   log "crontab not available — run infra/healthcheck.sh on a schedule yourself."
 fi
 
-# --- Seed the custom dashboard's .env (never overwrites an existing one) ------
+# --- Custom dashboard: TLS cert + .env ----------------------------------------
+# Self-signed pair for the BFF (same posture as the stack's own certs). The
+# dashboard/certs dir is gitignored via the repo-wide **/certs/ rule.
+DASH_CERT_DIR="$DETECTION_LAB_ROOT/dashboard/certs"
+if [[ ! -s "$DASH_CERT_DIR/dashboard.pem" ]]; then
+  log "Generating a self-signed TLS cert for the custom dashboard ..."
+  mkdir -p "$DASH_CERT_DIR"
+  openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
+    -keyout "$DASH_CERT_DIR/dashboard-key.pem" -out "$DASH_CERT_DIR/dashboard.pem" \
+    -subj "/CN=detection-lab-dashboard" \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" 2>/dev/null
+  chmod 600 "$DASH_CERT_DIR/dashboard-key.pem"
+fi
+
+# Seed dashboard/.env on first run; on existing files only append the TLS block
+# if absent (never touches credentials).
 DASH_ENV="$DETECTION_LAB_ROOT/dashboard/.env"
 if [[ ! -f "$DASH_ENV" ]]; then
   log "Writing $DASH_ENV (custom dashboard BFF config) ..."
@@ -526,6 +541,16 @@ PORT=8787
 DASH_USER=admin
 # Generate with: cd dashboard && npm run hash-password
 DASH_PASSWORD_HASH=
+DASH_TLS_CERT=$DASH_CERT_DIR/dashboard.pem
+DASH_TLS_KEY=$DASH_CERT_DIR/dashboard-key.pem
+DASH_COOKIE_SECURE=true
+EOF
+elif ! grep -q '^DASH_TLS_CERT=' "$DASH_ENV"; then
+  log "Enabling TLS in the existing $DASH_ENV (restart the BFF to apply) ..."
+  cat >> "$DASH_ENV" <<EOF
+DASH_TLS_CERT=$DASH_CERT_DIR/dashboard.pem
+DASH_TLS_KEY=$DASH_CERT_DIR/dashboard-key.pem
+DASH_COOKIE_SECURE=true
 EOF
 fi
 

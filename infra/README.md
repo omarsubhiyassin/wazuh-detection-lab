@@ -114,11 +114,16 @@ for a cosmetic win in a demo container.
 
 ## Endpoints
 
-| Service | URL / port | Notes |
-|---------|-----------|-------|
-| Wazuh Dashboard | https://localhost:443 | Built-in ops view; self-signed cert |
-| Wazuh Indexer | https://localhost:9200 | OpenSearch API; the custom dashboard queries this |
-| Manager | 1514/tcp, 1515/tcp | agent comms, enrollment |
+| Service | URL / port | Bound to | Notes |
+|---------|-----------|----------|-------|
+| Wazuh Dashboard | https://localhost:443 | 127.0.0.1 | Built-in ops view; self-signed cert |
+| Wazuh Indexer | https://localhost:9200 | 127.0.0.1 | OpenSearch API; the custom dashboard queries this |
+| Custom dashboard | https://localhost:8787 | host BFF | TLS via bootstrap-generated cert |
+| Manager (agents) | 1514/tcp, 1515/tcp | all interfaces | agent comms, enrollment — the only network-facing ports |
+| Manager (API, syslog) | 55000/tcp, 514/udp | 127.0.0.1 | open deliberately if remote sources need them |
+
+The override replaces the vendored `0.0.0.0` port bindings with `127.0.0.1`
+(compose `!override` tag) for everything except agent traffic.
 
 ## Common operations
 

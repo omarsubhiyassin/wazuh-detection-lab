@@ -4,6 +4,7 @@
 // talks to same-origin /api) and exposes a small, purpose-built API over the
 // Wazuh alerts index. In production it also serves the built SPA from dist/.
 import express from "express";
+import fs from "node:fs";
 import https from "node:https";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -163,6 +164,18 @@ const distDir = path.join(__dirname, "..", "dist");
 app.use(express.static(distDir));
 app.get("*", (_req, res) => res.sendFile(path.join(distDir, "index.html")));
 
-app.listen(PORT, () => {
-  console.log(`[dashboard] BFF on http://localhost:${PORT}  ->  ${INDEXER_URL} (${ALERTS_INDEX})`);
-});
+// Serve HTTPS when a cert/key pair is configured (bootstrap generates one and
+// sets DASH_TLS_CERT/DASH_TLS_KEY in .env); plain HTTP otherwise (dev).
+const TLS_CERT = process.env.DASH_TLS_CERT || "";
+const TLS_KEY = process.env.DASH_TLS_KEY || "";
+if (TLS_CERT && TLS_KEY) {
+  https
+    .createServer({ cert: fs.readFileSync(TLS_CERT), key: fs.readFileSync(TLS_KEY) }, app)
+    .listen(PORT, () => {
+      console.log(`[dashboard] BFF on https://localhost:${PORT}  ->  ${INDEXER_URL} (${ALERTS_INDEX})`);
+    });
+} else {
+  app.listen(PORT, () => {
+    console.log(`[dashboard] BFF on http://localhost:${PORT}  ->  ${INDEXER_URL} (${ALERTS_INDEX})`);
+  });
+}
