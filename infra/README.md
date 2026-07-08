@@ -196,6 +196,35 @@ Verify least privilege: read `wazuh-alerts-*` → 200; write or read another ind
   deleting `infra/wazuh-docker/`, and re-running `bootstrap.sh`. They differ only by the
   leading `v`: git tags carry it, Docker Hub image tags don't.
 
+## Upgrading the stack (procedure + rollback)
+
+Named volumes (`wazuh-indexer-data`, `wazuh_etc`, …) survive upgrades — data,
+agent keys and the `.security` index carry over. What does NOT carry over is the
+vendored clone: it's re-cloned at the new tag, so bootstrap re-applies our
+credential hashes, `path.repo`, and overlay on the fresh copy (that's why every
+customization lives in `.env` + the override + bootstrap).
+
+1. **Take a backup first**: `./backup.sh`, and note the current tags from `.env`.
+2. Read the Wazuh release notes for the target version (agent/manager
+   compatibility: managers must be upgraded before agents, and the indexer
+   schema occasionally migrates on first start).
+3. Update `WAZUH_DOCKER_TAG` + `WAZUH_IMAGE_TAG` in `.env`.
+4. `mv wazuh-docker wazuh-docker.prev` (keep it until the upgrade is proven —
+   it also still holds the previous `internal_users.yml`).
+5. `./bootstrap.sh` — clones the new tag, re-applies everything, and the final
+   verification report is the acceptance test (all checks green = upgraded).
+6. Confirm alert flow end-to-end (inject a generator sample; watch Slack), then
+   `rm -rf wazuh-docker.prev`.
+
+**Rollback**: restore the old tags in `.env`, `rm -rf wazuh-docker && mv
+wazuh-docker.prev wazuh-docker`, `./bootstrap.sh`. Volumes were never deleted,
+so state is intact; if the new indexer already migrated the data schema
+downgrade may be refused — that's what step 1's snapshot is for
+(`restore.sh --indices`).
+
+> Rehearse this on a quiet day, not during an incident: a dry run costs ~15 min
+> and a few GB of image downloads, and proves steps 4–6 actually work here.
+
 ## Backups & restore
 
 `bootstrap.sh` registers an indexer snapshot repository (fs type at
