@@ -25,6 +25,8 @@ purpose-built API over `wazuh-alerts-*`; the browser only ever talks to same-ori
 cd dashboard
 cp .env.example .env         # set INDEXER_RO_PASSWORD to the account's password
 npm install
+npm run hash-password        # prompts for the dashboard login password;
+                             # paste the DASH_PASSWORD_HASH line into .env
 
 # dev: Vite (5173) + BFF (8787), with /api proxied to the BFF
 npm run dev
@@ -42,18 +44,35 @@ npm run build && npm start   # open http://localhost:8787
 | `INDEXER_RO_PASSWORD` | — | its password |
 | `ALERTS_INDEX` | `wazuh-alerts-*` | alerts index pattern |
 | `PORT` | `8787` | BFF port |
+| `DASH_USER` | `admin` | dashboard login username |
+| `DASH_PASSWORD_HASH` | — | scrypt hash from `npm run hash-password`; logins **fail closed** until set |
+| `DASH_SESSION_TTL_HOURS` | `12` | session lifetime |
+| `DASH_COOKIE_SECURE` | `false` | set `true` behind HTTPS (adds `Secure` to the session cookie) |
+| `DASH_AUTH_DISABLED` | `false` | `true` disables auth entirely (local dev only) |
 
 ## API (BFF)
 | Endpoint | Purpose |
 |----------|---------|
+| `POST /api/auth/login` | `{username, password}` → session cookie; rate-limited |
+| `POST /api/auth/logout` | end the session |
+| `GET /api/auth/session` | current user, or 401 |
 | `GET /api/health` | indexer reachable + alert count |
 | `GET /api/stats?range&technique&minLevel&host&search` | totals, by-level, by-technique (+maxLevel/tactic), activity histogram |
 | `GET /api/alerts?…&size` | recent alerts (id + `_source`) for the feed/drawer |
+
+All endpoints except `/api/auth/*` require a signed-in session (401 otherwise).
 
 ## Design notes
 - **Why a BFF:** the browser can't hold indexer creds, and direct browser→indexer calls
   hit CORS + the self-signed cert + basic-auth. The BFF solves all three and keeps the
   attack surface to a few read-only endpoints.
+- **Auth** (`server/auth.js`) is zero-dependency by design: the single account's password
+  is scrypt-hashed (`node:crypto`), sessions are random 256-bit tokens in an in-memory
+  store, and the cookie is `HttpOnly; SameSite=Strict` (CSRF mitigation). Failed logins
+  are throttled per source IP (10 per 15 min), and a wrong username still runs one scrypt
+  verification so timing doesn't leak which usernames exist. A BFF restart logs everyone
+  out — fine single-tenant. The SPA shell itself is public; every byte of alert data sits
+  behind the session guard.
 - **ATT&CK mapping** for the matrix layout is a static table (`src/attack.ts`) — techniques
   belong to tactics per the framework, matching how ATT&CK Navigator renders coverage.
   Counts come live from `rule.mitre.id` aggregations.

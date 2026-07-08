@@ -7,6 +7,7 @@ import express from "express";
 import https from "node:https";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { installAuth } from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -80,6 +81,12 @@ function buildQuery(q) {
 }
 
 const app = express();
+app.use(express.json());
+
+// --- Auth ----------------------------------------------------------------------
+// Registers /api/auth/login|logout|session and a session guard on everything
+// else under /api. See server/auth.js.
+installAuth(app);
 
 // --- API ---------------------------------------------------------------------
 

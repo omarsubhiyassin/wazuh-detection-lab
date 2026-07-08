@@ -9,6 +9,7 @@
     "dev:server": "node --watch --env-file-if-exists=.env server/index.js",
     "dev:web": "vite",
     "typecheck": "tsc --noEmit",
+    "hash-password": "node scripts/hash-password.mjs",
     "build": "tsc --noEmit && vite build",
     "start": "NODE_ENV=production node --env-file-if-exists=.env server/index.js"
   },
@@ -24,5 +25,8 @@
     "react-dom": "^18.3.1",
     "typescript": "^5.5.3",
     "vite": "^5.3.4"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true
   }
 }

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Alert, Filters, Stats } from "./types";
-import { getAlerts, getStats } from "./api";
+import { getAlerts, getSession, getStats, logout, HttpError } from "./api";
 import { AttackMatrix } from "./components/AttackMatrix";
 import { AlertTable } from "./components/AlertTable";
 import { AlertDrawer } from "./components/AlertDrawer";
+import { Login } from "./components/Login";
 import { TECHNIQUES } from "./attack";
 
 const RANGES = ["1h", "24h", "7d", "30d", "all"];
@@ -28,6 +29,8 @@ function TimeSpark({ data }: { data: Stats["overTime"] }) {
 }
 
 export function App() {
+  // undefined = session check in flight, null = signed out, string = username.
+  const [user, setUser] = useState<string | null | undefined>(undefined);
   const [filters, setFilters] = useState<Filters>({ range: "7d" });
   const [stats, setStats] = useState<Stats | null>(null);
   const [data, setData] = useState<{ total: number; alerts: Alert[] }>({ total: 0, alerts: [] });
@@ -36,15 +39,25 @@ export function App() {
   const [selected, setSelected] = useState<Alert | null>(null);
 
   useEffect(() => {
+    getSession().then((s) => setUser(s.user)).catch(() => setUser(null));
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
     let live = true;
     setLoading(true);
     setError(null);
     Promise.all([getStats(filters), getAlerts(filters)])
       .then(([s, a]) => { if (live) { setStats(s); setData(a); } })
-      .catch((e) => { if (live) setError(String(e)); })
+      .catch((e) => {
+        if (!live) return;
+        // Session expired mid-use: drop back to the login screen.
+        if (e instanceof HttpError && e.status === 401) setUser(null);
+        else setError(String(e));
+      })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [filters]);
+  }, [filters, user]);
 
   const coveredCount = useMemo(() => {
     const known = Object.keys(TECHNIQUES);
@@ -53,6 +66,9 @@ export function App() {
   }, [stats]);
 
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
+
+  if (user === undefined) return null; // session check in flight
+  if (user === null) return <Login onLogin={setUser} />;
 
   return (
     <div className="app">
@@ -78,6 +94,10 @@ export function App() {
             onChange={(e) => set({ host: e.target.value || undefined })} />
           <input placeholder="search…" value={filters.search ?? ""}
             onChange={(e) => set({ search: e.target.value || undefined })} />
+          <span className="session muted">{user}</span>
+          <button className="linkish" onClick={() => { logout().finally(() => setUser(null)); }}>
+            sign out
+          </button>
         </div>
       </header>
 
