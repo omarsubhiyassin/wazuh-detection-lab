@@ -74,6 +74,10 @@ That is the whole deploy. `bootstrap.sh` is idempotent (safe to re-run) and:
     (default 12) are posted to `SLACK_WEBHOOK_URL` via the Wazuh integrator
     (managed as a marked block in the manager's `ossec.conf`; unsetting the URL
     and re-running removes it),
+11b. installs **self-monitoring** — `healthcheck.sh` on a 5-minute cron: containers
+    up, indexer green, filebeat shipping, an agent Active, disk below
+    `DISK_ALERT_PCT`. Posts to Slack on failure and recovery (reminders every
+    `REMIND_HOURS` while broken), so a dead pipeline can't stay silent,
 12. configures **active response** (opt-in, `ACTIVE_RESPONSE_ENABLED=true`) — an
     SSH brute-force alert (rules `5712`/`5763` by default) auto-blocks the source
     IP via `firewall-drop`, scoped to a safety allowlist (loopback + this

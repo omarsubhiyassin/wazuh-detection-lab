@@ -1,5 +1,7 @@
 # --- Secrets / environment ---
 infra/.env
+infra/.healthcheck.state
+infra/.healthcheck.log
 **/*.pem
 **/*.key
 **/certs/

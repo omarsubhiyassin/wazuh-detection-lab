@@ -476,6 +476,14 @@ for _ in $(seq 1 40); do
   sleep 5
 done
 
+# --- Self-monitoring: healthcheck on a cron schedule ---------------------------
+if command -v crontab >/dev/null 2>&1; then
+  "$HERE/healthcheck.sh" --install >/dev/null
+  log "Healthcheck installed (cron, every 5 min; alerts to Slack on state change)."
+else
+  log "crontab not available — run infra/healthcheck.sh on a schedule yourself."
+fi
+
 # --- Seed the custom dashboard's .env (never overwrites an existing one) ------
 DASH_ENV="$DETECTION_LAB_ROOT/dashboard/.env"
 if [[ ! -f "$DASH_ENV" ]]; then
