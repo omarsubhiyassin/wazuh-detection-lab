@@ -235,6 +235,71 @@ user_code=$(curl -sk -o /dev/null -w '%{http_code}' -u "$AUTH" -XPUT \
 [[ "$role_code" =~ ^20[01]$ && "$user_code" =~ ^20[01]$ ]] \
   || fail "read-only account setup failed (role: $role_code, user: $user_code)"
 
+# --- Retention / index lifecycle (ISM) ----------------------------------------
+# Upserts a hot->delete ISM policy and attaches it to matching indices. The
+# ism_template covers indices created later; the add/change_policy calls cover
+# ones that already exist. Idempotent; a changed retention window in .env
+# updates the policy and re-points managed indices at the new version.
+ISM="$B/_plugins/_ism"
+apply_retention() { # policy_id days patterns_json patterns_csv
+  local id=$1 days=$2 patterns_json=$3 patterns_csv=$4
+  [[ "$days" =~ ^[0-9]+$ ]] || fail "retention days for $id must be a number (got '$days')"
+  if [[ "$days" == 0 ]]; then
+    log "Retention for $patterns_csv disabled (0 days) — leaving indices unmanaged."
+    return 0
+  fi
+  local body resp code seq prim
+  body=$(cat <<JSON
+{"policy":{"description":"detection-lab retention: delete ${days}d after index creation",
+  "default_state":"hot",
+  "states":[
+    {"name":"hot","actions":[],
+     "transitions":[{"state_name":"delete","conditions":{"min_index_age":"${days}d"}}]},
+    {"name":"delete","actions":[{"delete":{}}],"transitions":[]}],
+  "ism_template":[{"index_patterns":${patterns_json},"priority":10}]}}
+JSON
+)
+  resp="$(curl -sk -u "$AUTH" "$ISM/policies/$id" -w '\n%{http_code}')"
+  code="$(tail -1 <<<"$resp")"
+  if [[ "$code" == 404 ]]; then
+    log "Creating ISM policy $id (delete after ${days}d) ..."
+    code=$(curl -sk -o /dev/null -w '%{http_code}' -u "$AUTH" -XPUT \
+      "$ISM/policies/$id" -H 'Content-Type: application/json' -d "$body")
+    [[ "$code" =~ ^20[01]$ ]] || fail "creating ISM policy $id failed (HTTP $code)"
+  elif grep -q "\"min_index_age\":\"${days}d\"" <<<"$resp"; then
+    log "ISM policy $id already at ${days}d."
+  else
+    log "Updating ISM policy $id to ${days}d ..."
+    seq="$(grep -o '"_seq_no":[0-9]*' <<<"$resp" | head -1 | cut -d: -f2)"
+    prim="$(grep -o '"_primary_term":[0-9]*' <<<"$resp" | head -1 | cut -d: -f2)"
+    code=$(curl -sk -o /dev/null -w '%{http_code}' -u "$AUTH" -XPUT \
+      "$ISM/policies/$id?if_seq_no=$seq&if_primary_term=$prim" \
+      -H 'Content-Type: application/json' -d "$body")
+    [[ "$code" =~ ^20[01]$ ]] || fail "updating ISM policy $id failed (HTTP $code)"
+    # Re-point already-managed indices at the new policy version.
+    curl -sk -o /dev/null -u "$AUTH" -XPOST "$ISM/change_policy/$patterns_csv" \
+      -H 'Content-Type: application/json' -d "{\"policy_id\":\"$id\"}" || true
+  fi
+  # Attach to pre-existing unmanaged indices (already-managed ones are reported
+  # as failures by the API and safely ignored).
+  curl -sk -o /dev/null -u "$AUTH" -XPOST "$ISM/add/$patterns_csv" \
+    -H 'Content-Type: application/json' -d "{\"policy_id\":\"$id\"}" || true
+}
+log "Applying retention policies ..."
+apply_retention detectionlab-alerts-retention "${ALERTS_RETENTION_DAYS:-90}" \
+  '["wazuh-alerts-*"]' 'wazuh-alerts-*'
+apply_retention detectionlab-internal-retention "${INTERNAL_RETENTION_DAYS:-30}" \
+  '["wazuh-monitoring-*","wazuh-statistics-*"]' 'wazuh-monitoring-*,wazuh-statistics-*'
+# The ISM plugin creates its config index with 1 replica, which can never
+# assign on a single-node cluster and turns health yellow. It is a protected
+# system index (even admin gets 403 over basic auth), so drop the replica via
+# the super-admin TLS cert from inside the indexer container.
+docker exec "$INDEXER" bash -c '
+  C=/usr/share/wazuh-indexer/config/certs
+  curl -sk -o /dev/null --cert $C/admin.pem --key $C/admin-key.pem --cacert $C/root-ca.pem \
+    -XPUT https://localhost:9200/.opendistro-ism-config/_settings \
+    -H "Content-Type: application/json" -d "{\"index\":{\"number_of_replicas\":0}}"' || true
+
 # --- Wait for the Linux agent to be Active ------------------------------------
 log "Waiting for the Linux agent to enroll and go Active ..."
 AGENT_OK=no
@@ -279,6 +344,11 @@ RO_WRITE="$(curl -sk -o /dev/null -w '%{http_code}' -u "$RO" -XPOST \
 check "read-only account can read alerts" "$([[ "$RO_READ" == 200 ]] && echo yes || echo NO)"
 check "read-only account denied writes" "$([[ "$RO_WRITE" == 403 ]] && echo yes || echo "NO ($RO_WRITE)")"
 check "linux agent active" "$AGENT_OK"
+if [[ "${ALERTS_RETENTION_DAYS:-90}" != 0 ]]; then
+  MANAGED="$(curl -sk -u "$AUTH" "$ISM/explain/wazuh-alerts-*" | grep -o '"policy_id":"detectionlab-alerts-retention"' | wc -l)"
+  check "alerts retention (${ALERTS_RETENTION_DAYS:-90}d) on indices" \
+    "$([[ "$MANAGED" -gt 0 ]] && echo "yes ($MANAGED)" || echo NO)"
+fi
 if [[ -n "${AGENT_ENROLLMENT_PASSWORD:-}" ]]; then
   check "authenticated enrollment (authd.pass)" "$(docker exec "$MANAGER" sh -c 'test -s /var/ossec/etc/authd.pass && grep -q "<use_password>yes</use_password>" /var/ossec/etc/ossec.conf' && echo yes || echo NO)"
 fi

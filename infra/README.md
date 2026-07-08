@@ -65,9 +65,15 @@ That is the whole deploy. `bootstrap.sh` is idempotent (safe to re-run) and:
    presents it automatically, real endpoints use it when enrolling,
 9. creates the agent group and the **read-only dashboard account** (role + user via
    the security REST API, idempotent),
-10. seeds `dashboard/.env` for the custom dashboard (never overwrites an existing one),
-11. prints a **verification report**: cluster health, default creds disabled, RO
-    account 200-on-read / 403-on-write, agent Active, authd password in force.
+10. applies **retention (ISM) policies** — alerts deleted `ALERTS_RETENTION_DAYS`
+    after index creation (daily indices), internal `wazuh-monitoring-*` /
+    `wazuh-statistics-*` after `INTERNAL_RETENTION_DAYS`; `0` disables. Changing
+    the window in `.env` and re-running updates the policy and re-points
+    already-managed indices,
+11. seeds `dashboard/.env` for the custom dashboard (never overwrites an existing one),
+12. prints a **verification report**: cluster health, default creds disabled, RO
+    account 200-on-read / 403-on-write, agent Active, authd password in force,
+    retention policy attached.
 
 **Login after deploy:** `admin` / your `INDEXER_PASSWORD` at https://localhost.
 `SecretPassword` no longer works.
