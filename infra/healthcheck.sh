@@ -56,8 +56,14 @@ fi
 if docker inspect -f '{{.State.Status}}' "$MANAGER" 2>/dev/null | grep -q running; then
   docker exec "$MANAGER" filebeat test output >/dev/null 2>&1 \
     || FAILURES+=("manager filebeat cannot ship to the indexer")
-  ACTIVE="$(docker exec "$MANAGER" /var/ossec/bin/agent_control -l 2>/dev/null | grep -c Active)"
+  AGENT_LIST="$(docker exec "$MANAGER" /var/ossec/bin/agent_control -l 2>/dev/null)"
+  ACTIVE="$(grep -c Active <<<"$AGENT_LIST")"
   (( ACTIVE >= 1 )) || FAILURES+=("no agent is Active")
+  # A previously-enrolled agent that is now Disconnected/Never connected is a
+  # blind spot — name it. (id: 000 is the manager itself; skip it.)
+  DISC="$(grep -E 'Disconnected|Never connected' <<<"$AGENT_LIST" | grep -v 'ID: 000' \
+    | sed -E 's/.*Name: ([^,]+),.*/\1/' | paste -sd, - | sed 's/,/, /g')"
+  [[ -n "$DISC" ]] && FAILURES+=("agent(s) not reporting: $DISC")
 fi
 
 if [[ "$EVENT_STALL_HOURS" =~ ^[1-9][0-9]*$ && -n "$HEALTH" ]]; then

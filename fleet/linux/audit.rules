@@ -1,0 +1,35 @@
+# Curated auditd rules for the detection lab (Linux endpoints).
+# Install to /etc/audit/rules.d/detection-lab.rules and `augenrules --load`.
+# High-signal, low-volume: execution, privilege change, and persistence paths —
+# the Linux analogue of the Sysmon coverage on Windows.
+
+# Remove any existing rules on load, fail-safe if the kernel lacks audit.
+-D
+-b 8192
+-f 1
+
+# --- Execution: every execve, tagged so rules can key on it -------------------
+-a always,exit -F arch=b64 -S execve -F key=dl_exec
+-a always,exit -F arch=b32 -S execve -F key=dl_exec
+
+# --- Privilege escalation / identity changes ---------------------------------
+-a always,exit -F arch=b64 -S setuid -S setgid -S setreuid -S setregid -F key=dl_privchange
+-w /etc/sudoers -p wa -k dl_privesc
+-w /etc/sudoers.d/ -p wa -k dl_privesc
+-w /usr/bin/sudo -p x -k dl_privesc
+-w /bin/su -p x -k dl_privesc
+
+# --- Account / credential changes --------------------------------------------
+-w /etc/passwd -p wa -k dl_identity
+-w /etc/shadow -p wa -k dl_identity
+-w /etc/group -p wa -k dl_identity
+
+# --- Persistence: cron + systemd units ---------------------------------------
+-w /etc/crontab -p wa -k dl_persistence
+-w /etc/cron.d/ -p wa -k dl_persistence
+-w /var/spool/cron/ -p wa -k dl_persistence
+-w /etc/systemd/system/ -p wa -k dl_persistence
+-w /lib/systemd/system/ -p wa -k dl_persistence
+
+# --- SSH authorized_keys tampering -------------------------------------------
+-w /root/.ssh/ -p wa -k dl_ssh_keys

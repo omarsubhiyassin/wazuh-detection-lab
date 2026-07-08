@@ -386,6 +386,21 @@ docker exec "$MANAGER" sh -c "mkdir -p /var/ossec/etc/shared/${AGENT_GROUP} \
   && chown -R wazuh:wazuh /var/ossec/etc/shared/${AGENT_GROUP}"
 log "Ensured agent group '${AGENT_GROUP}' exists on the manager."
 
+# Push the shared group config so every enrolled agent (Windows/Linux) collects
+# the sources our rules key on — the fleet-ready alternative to per-host config.
+# Copy in only on change to avoid needless merged.mg regeneration.
+GROUP_CONF_SRC="$HERE/config/agent-group.conf"
+GROUP_CONF_DST="/var/ossec/etc/shared/${AGENT_GROUP}/agent.conf"
+if [[ -f "$GROUP_CONF_SRC" ]]; then
+  if ! docker exec "$MANAGER" sh -c "cat '$GROUP_CONF_DST' 2>/dev/null" | cmp -s - "$GROUP_CONF_SRC"; then
+    log "Updating the ${AGENT_GROUP} group agent.conf (fleet collection config) ..."
+    docker exec -i "$MANAGER" sh -c "cat > '$GROUP_CONF_DST' \
+      && chown wazuh:wazuh '$GROUP_CONF_DST' && chmod 660 '$GROUP_CONF_DST'" < "$GROUP_CONF_SRC"
+  else
+    log "Group agent.conf already up to date."
+  fi
+fi
+
 # --- Create/update the read-only account for the custom dashboard ------------
 log "Creating/updating the read-only dashboard account (${CUSTOM_DASHBOARD_RO_USER}) ..."
 API="$B/_plugins/_security/api"
