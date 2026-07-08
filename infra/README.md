@@ -191,6 +191,23 @@ Verify least privilege: read `wazuh-alerts-*` → 200; write or read another ind
   deleting `infra/wazuh-docker/`, and re-running `bootstrap.sh`. They differ only by the
   leading `v`: git tags carry it, Docker Hub image tags don't.
 
+## Backups & restore
+
+`bootstrap.sh` registers an indexer snapshot repository (fs type at
+`${BACKUP_DIR}/snapshots`, bind-mounted to `/mnt/snapshots`) and installs a
+daily 02:00 cron for [backup.sh](backup.sh), which takes a snapshot of
+`wazuh-alerts-*` plus a manager-state tarball (`client.keys`, `ossec.conf`,
+shared groups) and copies of `infra/.env` / `internal_users.yml`, pruning to the
+newest `BACKUP_KEEP` of each. **`BACKUP_DIR` contains secrets — keep it off
+shared storage.**
+
+[restore.sh](restore.sh) covers the other half: `--list` what exists,
+`--rehearse <snapshot>` for a **non-destructive drill** (restores under a
+`restored-` prefix, compares doc counts, deletes the copies — run this
+periodically; a backup that's never been restored doesn't count), and the
+destructive `--indices <snapshot>` / `--manager <tarball>` for real recovery
+(both require typing YES).
+
 ## Troubleshooting
 
 | Symptom | Likely cause / fix |

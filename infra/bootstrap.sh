@@ -88,6 +88,11 @@ SINGLE_NODE="$VENDOR_DIR/single-node"
 cp "$HERE/docker-compose.override.yml" "$SINGLE_NODE/docker-compose.override.yml"
 cp "$HERE/.env" "$SINGLE_NODE/.env"
 
+# Create the backup dirs BEFORE compose up: the override bind-mounts
+# ${BACKUP_DIR}/snapshots, and docker would otherwise create it root-owned.
+BACKUP_DIR="${BACKUP_DIR:-/var/tmp/detection-lab-backups}"
+mkdir -p "$BACKUP_DIR/snapshots" "$BACKUP_DIR/manager"
+
 cd "$SINGLE_NODE"
 compose() { docker compose -f docker-compose.yml -f docker-compose.override.yml "$@"; }
 
@@ -475,6 +480,30 @@ for _ in $(seq 1 40); do
   fi
   sleep 5
 done
+
+# --- Backups: snapshot repository + daily cron ---------------------------------
+# The override mounts ${BACKUP_DIR}/snapshots at /mnt/snapshots; the indexer
+# additionally needs path.repo in its config (a bind-mounted vendored file —
+# append IN PLACE, same inode rule as internal_users.yml) and a restart when
+# that line is first added.
+IYML="$SINGLE_NODE/config/wazuh_indexer/wazuh.indexer.yml"
+if ! grep -q '^path\.repo' "$IYML"; then
+  log "Enabling the snapshot path on the indexer (one-time indexer restart) ..."
+  printf '\npath.repo: ["/mnt/snapshots"]\n' >> "$IYML"
+  compose up -d --force-recreate wazuh.indexer
+  for _ in $(seq 1 90); do
+    [[ "$(idx_code "admin:${ADMIN_PASS}" /)" == 200 ]] && break
+    sleep 5
+  done
+fi
+repo_code=$(curl -sk -o /dev/null -w '%{http_code}' -u "$AUTH" -XPUT \
+  "$B/_snapshot/detectionlab" -H 'Content-Type: application/json' \
+  -d '{"type":"fs","settings":{"location":"/mnt/snapshots","compress":true}}')
+[[ "$repo_code" =~ ^20[01]$ ]] || fail "snapshot repository registration failed (HTTP $repo_code)"
+if command -v crontab >/dev/null 2>&1; then
+  "$HERE/backup.sh" --install >/dev/null
+  log "Backups: repository registered; daily 02:00 cron installed -> $BACKUP_DIR"
+fi
 
 # --- Self-monitoring: healthcheck on a cron schedule ---------------------------
 if command -v crontab >/dev/null 2>&1; then

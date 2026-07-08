@@ -25,6 +25,9 @@ services:
   wazuh.indexer:
     environment:
       - "OPENSEARCH_JAVA_OPTS=${INDEXER_JAVA_OPTS:--Xms2g -Xmx2g}"
+    volumes:
+      # Snapshot repository target (bootstrap adds path.repo + registers it).
+      - ${BACKUP_DIR:-/var/tmp/detection-lab-backups}/snapshots:/mnt/snapshots
 
   wazuh.dashboard:
     environment:
