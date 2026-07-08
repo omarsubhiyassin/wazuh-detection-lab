@@ -18,6 +18,7 @@ generator/ground_truth/*.jsonl
 validation/reports/
 
 # --- Node / dashboard ---
+dashboard/.env
 dashboard/node_modules/
 dashboard/dist/
 dashboard/.vite/
@@ -31,6 +32,7 @@ venv/
 
 # --- Local tool/editor settings (machine-specific) ---
 .claude/settings.local.json
+.claude/launch.json
 
 # --- OS / editor ---
 .DS_Store

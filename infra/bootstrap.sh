@@ -61,14 +61,32 @@ fi
 echo "Starting the stack ..."
 docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
 
+# --- Wait for the manager, then ensure the agent's enrollment group exists ----
+# The Linux agent enrolls into the "detection-lab" group; Wazuh's authd rejects
+# enrollment into a group that doesn't exist yet, so create it once the manager
+# is up (idempotent).
+MANAGER="single-node-wazuh.manager-1"
+AGENT_GROUP="detection-lab"
+echo "Waiting for the manager's enrollment service (authd) ..."
+for _ in $(seq 1 60); do
+  if docker exec "$MANAGER" sh -c '/var/ossec/bin/wazuh-control status 2>/dev/null | grep -q "wazuh-authd is running"'; then
+    break
+  fi
+  sleep 3
+done
+docker exec "$MANAGER" sh -c "mkdir -p /var/ossec/etc/shared/${AGENT_GROUP} \
+  && chown -R wazuh:wazuh /var/ossec/etc/shared/${AGENT_GROUP}" \
+  && echo "Ensured agent group '${AGENT_GROUP}' exists on the manager."
+
 cat <<EOF
 
 Stack starting. Give the indexer ~1-2 minutes to go green.
 
-  Wazuh Dashboard : https://localhost:443   (user: ${DASHBOARD_USERNAME:-admin})
+  Wazuh Dashboard : https://localhost:443   (login: admin / SecretPassword -- see infra/README.md)
   Wazuh Indexer   : https://localhost:9200
   Manager syslog  : 1514/tcp (agents), 1515/tcp (enrollment)
 
 Check health:   docker compose ps
+Agent enrolled: docker exec ${MANAGER} /var/ossec/bin/agent_control -l
 Manager logs:   docker compose logs -f wazuh.manager
 EOF

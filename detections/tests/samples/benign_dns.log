@@ -1,0 +1,1 @@
+{"timestamp":"2026-07-06T03:33:53.414758+0000","flow_id":62149,"event_type":"dns","src_ip":"10.0.20.31","src_port":44431,"dest_ip":"10.0.20.1","dest_port":53,"proto":"UDP","dns":{"type":"query","id":62149,"rrname":"www.google.com","rrtype":"A"}}

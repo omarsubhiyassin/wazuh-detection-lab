@@ -42,12 +42,19 @@ Full component breakdown in [docs/architecture.md](docs/architecture.md).
 Building in phases (see [docs/roadmap.md](docs/roadmap.md)):
 
 - [x] **Phase 0** — Lab infra + repo scaffolding
-- [ ] **Phase 1** — Wazuh up, ingestion smoke test
-- [ ] **Phase 2** — Synthetic log generator (baseline + 4 v1 scenarios)
-- [ ] **Phase 3** — Decoders + signature detections
-- [ ] **Phase 4** — Correlation / composite detections
-- [ ] **Phase 5** — Custom dashboard
-- [ ] **Phase 6** — Validation harness + docs
+- [x] **Phase 1** — Wazuh up, ingestion smoke test
+- [x] **Phase 2** — Synthetic log generator (baseline + 4 v1 scenarios)
+- [x] **Phase 3** — Decoders + signature detections
+- [x] **Phase 4** — Correlation / composite detections
+- [x] **Phase 5** — Custom dashboard
+- [x] **Phase 6** — Validation harness + docs
+
+**Measured coverage** (live stream run): recall **100%** (11/11 injected events across 9
+techniques / 7 tactics), false positives **0** — see the committed
+[coverage report](docs/coverage-report.md). Includes three correlation
+detections: execution→persistence kill-chain (100420), download↔execution via process
+GUID (100430), and network-based ingress-tool-transfer (100310, closing T1105). See
+[validation/](validation/) and [docs/detections.md](docs/detections.md).
 
 **v1 attack scenarios:** brute-force→success (T1110→T1078), encoded PowerShell cradle
 (T1059.001), scheduled-task persistence (T1053.005), DNS-tunnel C2 beacon (T1071.004).

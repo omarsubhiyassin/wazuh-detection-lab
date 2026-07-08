@@ -1,0 +1,26 @@
+Jul  6 06:50:51 web-01 sshd[54317]: Failed password for invalid user root from 203.0.113.45 port 58050 ssh2
+Jul  6 06:50:55 web-01 sshd[54317]: Failed password for invalid user ubuntu from 203.0.113.45 port 49124 ssh2
+Jul  6 06:50:59 web-01 sshd[54317]: Failed password for invalid user git from 203.0.113.45 port 49778 ssh2
+Jul  6 06:51:00 web-01 sshd[54317]: Failed password for invalid user git from 203.0.113.45 port 46721 ssh2
+Jul  6 06:51:02 web-01 sshd[54317]: Failed password for invalid user user from 203.0.113.45 port 54635 ssh2
+Jul  6 06:51:04 web-01 sshd[54317]: Failed password for invalid user root from 203.0.113.45 port 47611 ssh2
+Jul  6 06:51:09 web-01 sshd[54317]: Failed password for invalid user oracle from 203.0.113.45 port 57097 ssh2
+Jul  6 06:51:14 web-01 sshd[54317]: Failed password for invalid user test from 203.0.113.45 port 52711 ssh2
+Jul  6 06:51:18 web-01 sshd[54317]: Failed password for invalid user postgres from 203.0.113.45 port 35850 ssh2
+Jul  6 06:51:19 web-01 sshd[54317]: Failed password for invalid user postgres from 203.0.113.45 port 36771 ssh2
+Jul  6 06:51:20 web-01 sshd[54317]: Failed password for invalid user root from 203.0.113.45 port 59847 ssh2
+Jul  6 06:51:24 web-01 sshd[54317]: Failed password for invalid user git from 203.0.113.45 port 35816 ssh2
+Jul  6 06:51:26 web-01 sshd[54317]: Failed password for invalid user git from 203.0.113.45 port 47229 ssh2
+Jul  6 06:51:29 web-01 sshd[54317]: Failed password for deploy from 203.0.113.45 port 36073 ssh2
+Jul  6 06:51:30 web-01 sshd[54317]: Failed password for invalid user user from 203.0.113.45 port 48520 ssh2
+Jul  6 06:51:35 web-01 sshd[54317]: Failed password for invalid user oracle from 203.0.113.45 port 47383 ssh2
+Jul  6 06:51:37 web-01 sshd[54317]: Failed password for deploy from 203.0.113.45 port 53756 ssh2
+Jul  6 06:51:39 web-01 sshd[54317]: Failed password for invalid user test from 203.0.113.45 port 51542 ssh2
+Jul  6 06:51:43 web-01 sshd[54317]: Failed password for invalid user git from 203.0.113.45 port 55405 ssh2
+Jul  6 06:51:47 web-01 sshd[54317]: Failed password for invalid user ubuntu from 203.0.113.45 port 56053 ssh2
+Jul  6 06:51:48 web-01 sshd[54317]: Failed password for invalid user git from 203.0.113.45 port 38513 ssh2
+Jul  6 06:51:51 web-01 sshd[54317]: Failed password for invalid user postgres from 203.0.113.45 port 36369 ssh2
+Jul  6 06:51:55 web-01 sshd[54317]: Failed password for invalid user git from 203.0.113.45 port 42273 ssh2
+Jul  6 06:51:59 web-01 sshd[54317]: Failed password for invalid user admin from 203.0.113.45 port 59407 ssh2
+Jul  6 06:52:04 web-01 sshd[54317]: Failed password for invalid user root from 203.0.113.45 port 48217 ssh2
+Jul  6 06:52:10 web-01 sshd[54317]: Accepted password for deploy from 203.0.113.45 port 56756 ssh2

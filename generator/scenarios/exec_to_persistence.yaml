@@ -1,0 +1,24 @@
+name: exec_to_persistence
+kind: exec_to_persistence
+description: >
+  Kill chain: a malicious document spawns encoded PowerShell (execution), which
+  then registers a scheduled task for persistence — same host, within seconds.
+  Exercises the execution->persistence correlation rule (100420). Runs on its own
+  host so it doesn't accidentally correlate with the standalone scenarios.
+mitre:
+  - technique: T1059.001
+    name: PowerShell
+    tactic: Execution
+  - technique: T1053.005
+    name: Scheduled Task
+    tactic: Persistence
+params:
+  host: WIN-HR-02
+  user: CORP\mchen
+  parent_image: C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE
+  task_name: \Microsoft\Windows\Maintenance\SystemUpdate
+  c2_url: http://185.220.101.42/win/stage2.ps1
+  gap_seconds: 8
+  # exec step -> 100101 (+ composite 100420); persist step -> 100110/100121 (+ 100420)
+  expected_rules_exec: [100101, 100420]
+  expected_rules_persist: [100110, 100121, 100420]

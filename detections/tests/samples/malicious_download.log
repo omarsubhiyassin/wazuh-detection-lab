@@ -1,0 +1,1 @@
+{"timestamp":"2026-07-07T18:39:09.949058+0000","event_type":"http","src_ip":"10.0.20.31","src_port":50080,"dest_ip":"185.220.101.42","dest_port":80,"proto":"TCP","http":{"hostname":"185.220.101.42","url":"/win/update.ps1","http_user_agent":"Mozilla/5.0 (Windows NT 10.0; WOW64) WindowsPowerShell/5.1.19041.1","http_method":"GET","protocol":"HTTP/1.1","status":200,"length":71321}}

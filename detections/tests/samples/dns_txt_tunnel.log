@@ -1,0 +1,1 @@
+{"timestamp":"2026-07-06T09:58:24.711518+0000","flow_id":9326,"event_type":"dns","src_ip":"10.0.20.33","src_port":43333,"dest_ip":"10.0.20.1","dest_port":53,"proto":"UDP","dns":{"type":"query","id":9326,"rrname":"ae0608d6d7398fd0fba63add53.sync.telemetry-cdn.net","rrtype":"TXT"}}

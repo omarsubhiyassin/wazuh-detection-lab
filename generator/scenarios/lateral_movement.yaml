@@ -1,0 +1,16 @@
+name: lateral_movement
+kind: lateral_movement
+description: >
+  Lateral movement via PsExec: from a foothold host the attacker connects over
+  SMB (445) to a second host, where the PsExec service (PSEXESVC.exe) spawns a
+  shell and runs discovery commands.
+mitre:
+  - technique: T1021.002
+    name: SMB/Windows Admin Shares
+    tactic: Lateral Movement
+params:
+  source_host: WIN-DEV-03
+  target_host: WIN-FIN-01
+  admin_user: CORP\svc_admin
+  # remote command execution via PSEXESVC -> 100500
+  expected_rules: [100500]
