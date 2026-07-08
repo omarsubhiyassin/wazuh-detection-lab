@@ -78,8 +78,10 @@ docker compose down -v                  # stop + WIPE data (fresh start)
 - **Never edit** files under `infra/wazuh-docker/` — that's the pinned vendored stack.
 - All our changes live in `infra/docker-compose.override.yml` and the bind-mounted
   content under `detections/` and `generator/`.
-- Bump the Wazuh version by changing `WAZUH_DOCKER_TAG` in `.env`, deleting
-  `infra/wazuh-docker/`, and re-running `bootstrap.sh`.
+- Bump the Wazuh version by changing **both** `WAZUH_DOCKER_TAG` (git tag, `v`-prefixed,
+  e.g. `v4.14.6`) and `WAZUH_IMAGE_TAG` (Docker Hub tag, no `v`, e.g. `4.14.6`) in `.env`,
+  deleting `infra/wazuh-docker/`, and re-running `bootstrap.sh`. They differ only by the
+  leading `v`: git tags carry it, Docker Hub image tags don't.
 
 ## Troubleshooting
 
