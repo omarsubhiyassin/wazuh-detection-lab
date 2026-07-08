@@ -118,18 +118,24 @@ idx_code() { # user:pass path
 }
 
 # --- Wait for the indexer API and detect the working admin password ----------
+# ADMIN_PASS may legitimately end up empty here: when .env holds a brand-new
+# password (re-rotation), neither it nor the vendored default matches the old
+# one. That's fine — securityadmin authenticates with the admin TLS cert, so
+# rotation below doesn't need the current password.
 log "Waiting for the indexer API ..."
+API_UP=""
 ADMIN_PASS=""
 for _ in $(seq 1 120); do
-  if [[ "$(idx_code "admin:${INDEXER_PASSWORD}" /)" == 200 ]]; then
-    ADMIN_PASS="$INDEXER_PASSWORD"; break
-  fi
-  if [[ "$(idx_code "admin:SecretPassword" /)" == 200 ]]; then
-    ADMIN_PASS="SecretPassword"; break
-  fi
+  c_env="$(idx_code "admin:${INDEXER_PASSWORD}" /)"
+  if [[ "$c_env" == 200 ]]; then API_UP=yes; ADMIN_PASS="$INDEXER_PASSWORD"; break; fi
+  c_def="$(idx_code "admin:SecretPassword" /)"
+  if [[ "$c_def" == 200 ]]; then API_UP=yes; ADMIN_PASS="SecretPassword"; break; fi
+  # Both rejected (401) means the API is up but the password is an older
+  # custom one — proceed to rotation.
+  if [[ "$c_env" == 401 && "$c_def" == 401 ]]; then API_UP=yes; break; fi
   sleep 5
 done
-[[ -n "$ADMIN_PASS" ]] || fail "indexer API not reachable, or neither .env nor default admin password works"
+[[ -n "$API_UP" ]] || fail "indexer API not reachable"
 
 # --- Rotate the vendored default passwords (admin, kibanaserver) -------------
 # The indexer authenticates against bcrypt hashes in internal_users.yml (a
