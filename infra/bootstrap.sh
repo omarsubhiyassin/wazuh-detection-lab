@@ -214,6 +214,49 @@ if [[ -n "${AGENT_ENROLLMENT_PASSWORD:-}" ]]; then
   fi
 fi
 
+# --- Slack notifications (integrator) -----------------------------------------
+# Managed as a marked block appended to the manager's ossec.conf (multiple
+# <ossec_config> sections are valid). Idempotent: rewritten only on change,
+# removed entirely when SLACK_WEBHOOK_URL is unset.
+SLACK_MARK="detection-lab:slack"
+if [[ -n "${SLACK_WEBHOOK_URL:-}" ]]; then
+  NL="${NOTIFY_MIN_LEVEL:-12}"
+  [[ "$NL" =~ ^[0-9]+$ ]] || fail "NOTIFY_MIN_LEVEL must be a number (got '$NL')"
+  DESIRED_SLACK=$(cat <<XML
+<!-- ${SLACK_MARK}:start (managed by bootstrap — do not edit) -->
+<ossec_config>
+  <integration>
+    <name>slack</name>
+    <hook_url>${SLACK_WEBHOOK_URL}</hook_url>
+    <level>${NL}</level>
+    <alert_format>json</alert_format>
+  </integration>
+</ossec_config>
+<!-- ${SLACK_MARK}:end -->
+XML
+)
+  CURRENT_SLACK="$(docker exec "$MANAGER" sh -c \
+    "sed -n '/${SLACK_MARK}:start/,/${SLACK_MARK}:end/p' /var/ossec/etc/ossec.conf")"
+  if [[ "$CURRENT_SLACK" != "$DESIRED_SLACK" ]]; then
+    log "Configuring Slack notifications (alerts level >= ${NL}) ..."
+    docker exec -i "$MANAGER" sh -c "
+      sed -i '/${SLACK_MARK}:start/,/${SLACK_MARK}:end/d' /var/ossec/etc/ossec.conf \
+      && cat >> /var/ossec/etc/ossec.conf \
+      && /var/ossec/bin/wazuh-control restart" <<<"$DESIRED_SLACK" >/dev/null
+  else
+    log "Slack notifications already configured (level >= ${NL})."
+  fi
+else
+  if docker exec "$MANAGER" grep -q "${SLACK_MARK}:start" /var/ossec/etc/ossec.conf 2>/dev/null; then
+    log "SLACK_WEBHOOK_URL unset — removing the Slack notification config ..."
+    docker exec "$MANAGER" sh -c "
+      sed -i '/${SLACK_MARK}:start/,/${SLACK_MARK}:end/d' /var/ossec/etc/ossec.conf \
+      && /var/ossec/bin/wazuh-control restart" >/dev/null
+  else
+    log "SLACK_WEBHOOK_URL not set — Slack notifications disabled."
+  fi
+fi
+
 # --- Ensure the agent's enrollment group exists (authd rejects unknown groups) -
 AGENT_GROUP="detection-lab"
 docker exec "$MANAGER" sh -c "mkdir -p /var/ossec/etc/shared/${AGENT_GROUP} \
@@ -351,6 +394,10 @@ if [[ "${ALERTS_RETENTION_DAYS:-90}" != 0 ]]; then
 fi
 if [[ -n "${AGENT_ENROLLMENT_PASSWORD:-}" ]]; then
   check "authenticated enrollment (authd.pass)" "$(docker exec "$MANAGER" sh -c 'test -s /var/ossec/etc/authd.pass && grep -q "<use_password>yes</use_password>" /var/ossec/etc/ossec.conf' && echo yes || echo NO)"
+fi
+if [[ -n "${SLACK_WEBHOOK_URL:-}" ]]; then
+  check "slack notifications (level >= ${NOTIFY_MIN_LEVEL:-12})" \
+    "$(docker exec "$MANAGER" sh -c 'grep -q "<name>slack</name>" /var/ossec/etc/ossec.conf && /var/ossec/bin/wazuh-control status | grep -q "wazuh-integratord is running"' && echo yes || echo NO)"
 fi
 
 cat <<EOF

@@ -70,10 +70,14 @@ That is the whole deploy. `bootstrap.sh` is idempotent (safe to re-run) and:
     `wazuh-statistics-*` after `INTERNAL_RETENTION_DAYS`; `0` disables. Changing
     the window in `.env` and re-running updates the policy and re-points
     already-managed indices,
-11. seeds `dashboard/.env` for the custom dashboard (never overwrites an existing one),
-12. prints a **verification report**: cluster health, default creds disabled, RO
+11. configures **Slack notifications** — alerts at/above `NOTIFY_MIN_LEVEL`
+    (default 12) are posted to `SLACK_WEBHOOK_URL` via the Wazuh integrator
+    (managed as a marked block in the manager's `ossec.conf`; unsetting the URL
+    and re-running removes it),
+12. seeds `dashboard/.env` for the custom dashboard (never overwrites an existing one),
+13. prints a **verification report**: cluster health, default creds disabled, RO
     account 200-on-read / 403-on-write, agent Active, authd password in force,
-    retention policy attached.
+    retention policy attached, integrator running.
 
 **Login after deploy:** `admin` / your `INDEXER_PASSWORD` at https://localhost.
 `SecretPassword` no longer works.
