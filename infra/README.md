@@ -136,9 +136,12 @@ YAML → `securityadmin.sh -f internal_users.yml -t internalusers` → force-rec
 client containers. To rotate again later, change the password in `.env` and re-run
 `./bootstrap.sh` — it detects that the `.env` password doesn't match and rotates.
 
-**Not yet rotated:** the Wazuh API account (`wazuh-wui`) keeps its vendored default —
-it's only used between the built-in dashboard and the manager inside the compose
-network. Rotating it is a future hardening step.
+The Wazuh API account (`wazuh-wui`, port 55000) is rotated too, but differently:
+the API authenticates against its own RBAC store, so bootstrap logs in with the
+current password (vendored default on first rotation) and changes it via
+`PUT /security/users/{id}`, then recreates the built-in dashboard so it picks up
+`API_PASSWORD` from the override env. On a fresh volume the manager seeds the
+user from that env directly and no rotation is needed.
 
 ## Enrolling additional agents
 

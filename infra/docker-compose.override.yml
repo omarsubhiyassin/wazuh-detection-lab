@@ -15,6 +15,8 @@ services:
       # The vendored compose hardcodes SecretPassword; bootstrap rotates the
       # real account to ${INDEXER_PASSWORD} and this keeps filebeat in sync.
       - INDEXER_PASSWORD=${INDEXER_PASSWORD:-SecretPassword}
+      # Seeds the API user on a fresh volume; bootstrap rotates existing ones.
+      - API_PASSWORD=${API_PASSWORD:-MyS3cr37P450r.*-}
     volumes:
       # Custom detection content (detection-as-code) mounted read-only.
       - ${DETECTION_LAB_ROOT}/detections/rules/local_rules.xml:/var/ossec/etc/rules/local_rules.xml:ro
@@ -29,6 +31,7 @@ services:
       # Keep the built-in dashboard's clients in sync with the rotated accounts.
       - INDEXER_PASSWORD=${INDEXER_PASSWORD:-SecretPassword}
       - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-kibanaserver}
+      - API_PASSWORD=${API_PASSWORD:-MyS3cr37P450r.*-}
 
   # Linux endpoint that tails the synthetic log generator's output.
   # Enrollment + localfile wiring are finished and verified in Phase 1.

@@ -38,19 +38,25 @@ require_secret() { # name value forbidden...
   done
   return 0
 }
-check_policy() { # name value — indexer accounts: 8+ chars, upper/lower/digit/special
+check_policy() { # name value — indexer/API accounts: 8+ chars, upper/lower/digit/special
   local p=$2
   [[ ${#p} -ge 8 && "$p" =~ [A-Z] && "$p" =~ [a-z] && "$p" =~ [0-9] && "$p" =~ [^a-zA-Z0-9] ]] \
-    || fail "$1 must be 8+ chars with upper/lower/digit/special (indexer password policy)"
+    || fail "$1 must be 8+ chars with upper/lower/digit/special (password policy)"
+  case "$p" in
+    *[\"\']*|*\\*|*[[:space:]]*)
+      fail "$1 must not contain quotes, backslashes or whitespace (embedded in shell/JSON)";;
+  esac
 }
 if [[ "${ALLOW_DEFAULT_CREDS:-false}" != "true" ]]; then
   require_secret INDEXER_PASSWORD "${INDEXER_PASSWORD:-}" SecretPassword CHANGE_ME_admin_password
   require_secret DASHBOARD_PASSWORD "${DASHBOARD_PASSWORD:-}" kibanaserver CHANGE_ME_kibanaserver_password
   require_secret CUSTOM_DASHBOARD_RO_PASSWORD "${CUSTOM_DASHBOARD_RO_PASSWORD:-}" CHANGE_ME_strong_password
   require_secret AGENT_ENROLLMENT_PASSWORD "${AGENT_ENROLLMENT_PASSWORD:-}" CHANGE_ME_enrollment_password
+  require_secret API_PASSWORD "${API_PASSWORD:-}" 'MyS3cr37P450r.*-' CHANGE_ME_api_password
   check_policy INDEXER_PASSWORD "$INDEXER_PASSWORD"
   check_policy DASHBOARD_PASSWORD "$DASHBOARD_PASSWORD"
   check_policy CUSTOM_DASHBOARD_RO_PASSWORD "$CUSTOM_DASHBOARD_RO_PASSWORD"
+  check_policy API_PASSWORD "$API_PASSWORD"
 else
   log "ALLOW_DEFAULT_CREDS=true — skipping secret validation (throwaway lab mode)."
 fi
@@ -336,6 +342,39 @@ else
   fi
 fi
 
+# --- Rotate the Wazuh API account (wazuh-wui) ----------------------------------
+# The built-in dashboard talks to the manager API (55000) as wazuh-wui. On a
+# fresh volume the manager seeds the user from the override's API_PASSWORD; on
+# an existing stack we rotate via the API itself (JWT as the current password).
+WAPI="https://localhost:55000"
+API_PW_DESIRED="${API_PASSWORD:-MyS3cr37P450r.*-}"
+api_auth_code() { curl -sk -o /dev/null -w '%{http_code}' -u "wazuh-wui:$1" -X POST "$WAPI/security/user/authenticate" || echo 000; }
+log "Waiting for the manager API ..."
+API_CUR=""
+for _ in $(seq 1 60); do
+  if [[ "$(api_auth_code "$API_PW_DESIRED")" == 200 ]]; then API_CUR="$API_PW_DESIRED"; break; fi
+  if [[ "$(api_auth_code 'MyS3cr37P450r.*-')" == 200 ]]; then API_CUR='MyS3cr37P450r.*-'; break; fi
+  sleep 5
+done
+[[ -n "$API_CUR" ]] || fail "manager API unreachable, or neither .env nor default wazuh-wui password works"
+if [[ "$API_CUR" != "$API_PW_DESIRED" ]]; then
+  log "Rotating the Wazuh API password (wazuh-wui) ..."
+  API_TOKEN="$(curl -sk -u "wazuh-wui:$API_CUR" -X POST "$WAPI/security/user/authenticate?raw=true")"
+  WUI_ID="$(curl -sk -H "Authorization: Bearer $API_TOKEN" "$WAPI/security/users?search=wazuh-wui" \
+    | grep -o '"id": *[0-9]*' | head -1 | grep -o '[0-9]*')"
+  [[ -n "$WUI_ID" ]] || fail "could not resolve the wazuh-wui user id from the API"
+  code=$(curl -sk -o /dev/null -w '%{http_code}' -X PUT "$WAPI/security/users/$WUI_ID" \
+    -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' \
+    -d "{\"password\":\"$API_PW_DESIRED\"}")
+  [[ "$code" == 200 ]] || fail "wazuh-wui password rotation failed (HTTP $code)"
+  [[ "$(api_auth_code "$API_PW_DESIRED")" == 200 ]] || fail "rotated API password does not authenticate"
+  # The built-in dashboard reads API_PASSWORD from the override env — recreate
+  # it so it talks to the API with the new credential.
+  compose up -d --force-recreate wazuh.dashboard
+else
+  log "Wazuh API already uses the .env password — no rotation needed."
+fi
+
 # --- Ensure the agent's enrollment group exists (authd rejects unknown groups) -
 AGENT_GROUP="detection-lab"
 docker exec "$MANAGER" sh -c "mkdir -p /var/ossec/etc/shared/${AGENT_GROUP} \
@@ -412,14 +451,19 @@ apply_retention detectionlab-alerts-retention "${ALERTS_RETENTION_DAYS:-90}" \
   '["wazuh-alerts-*"]' 'wazuh-alerts-*'
 apply_retention detectionlab-internal-retention "${INTERNAL_RETENTION_DAYS:-30}" \
   '["wazuh-monitoring-*","wazuh-statistics-*"]' 'wazuh-monitoring-*,wazuh-statistics-*'
-# The ISM plugin creates its config index with 1 replica, which can never
-# assign on a single-node cluster and turns health yellow. It is a protected
-# system index (even admin gets 403 over basic auth), so drop the replica via
-# the super-admin TLS cert from inside the indexer container.
+# The ISM/job-scheduler plugins create their internal indices (config, history,
+# lock) with 1 replica, which can never assign on a single-node cluster and
+# turns health yellow. Make future history indices replica-free via a cluster
+# setting, and zero out the existing internal indices. They are protected
+# system indices (even admin gets 403 over basic auth), so use the super-admin
+# TLS cert from inside the indexer container.
+curl -sk -o /dev/null -u "$AUTH" -XPUT "$B/_cluster/settings" \
+  -H 'Content-Type: application/json' \
+  -d '{"persistent":{"plugins.index_state_management.history.number_of_replicas":"0"}}' || true
 docker exec "$INDEXER" bash -c '
   C=/usr/share/wazuh-indexer/config/certs
   curl -sk -o /dev/null --cert $C/admin.pem --key $C/admin-key.pem --cacert $C/root-ca.pem \
-    -XPUT https://localhost:9200/.opendistro-ism-config/_settings \
+    -XPUT "https://localhost:9200/.opendistro-ism-config,.opendistro-ism-managed-index-history-*,.opendistro-job-scheduler-lock/_settings?expand_wildcards=all" \
     -H "Content-Type: application/json" -d "{\"index\":{\"number_of_replicas\":0}}"' || true
 
 # --- Wait for the Linux agent to be Active ------------------------------------
@@ -458,6 +502,8 @@ if [[ "${ALLOW_DEFAULT_CREDS:-false}" != "true" ]]; then
     || check "default admin password disabled" "NO — STILL ACTIVE"
   [[ "$(idx_code kibanaserver:kibanaserver /)" == 401 ]] && check "default kibanaserver password disabled" "yes" \
     || check "default kibanaserver password disabled" "NO — STILL ACTIVE"
+  [[ "$(api_auth_code 'MyS3cr37P450r.*-')" == 401 ]] && check "default wazuh-wui API password disabled" "yes" \
+    || check "default wazuh-wui API password disabled" "NO — STILL ACTIVE"
 fi
 RO="${CUSTOM_DASHBOARD_RO_USER}:${CUSTOM_DASHBOARD_RO_PASSWORD}"
 RO_READ="$(idx_code "$RO" '/wazuh-alerts-*/_count')"
@@ -492,9 +538,6 @@ Deploy complete.
   Custom dashboard: see dashboard/README.md (BFF config seeded at dashboard/.env;
                     set DASH_PASSWORD_HASH via 'npm run hash-password' if empty)
   Enroll an agent : point it at this host, port 1515, with AGENT_ENROLLMENT_PASSWORD
-
-Known remaining default: the Wazuh API account (wazuh-wui) still uses the vendored
-password — internal to the compose network; rotation is a future hardening step.
 
 Check health:   docker compose ps
 Agent list:     docker exec ${MANAGER} /var/ossec/bin/agent_control -l
