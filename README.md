@@ -63,6 +63,7 @@ GUID (100430), and network-based ingress-tool-transfer (100310, closing T1105). 
 
 | Doc | What's in it |
 |-----|--------------|
+| [docs/how-it-works.md](docs/how-it-works.md) | **Learning walkthrough** — every phase explained (problem, internals, code, concepts) for someone building it from scratch |
 | [docs/architecture.md](docs/architecture.md) | Component breakdown + design rationale (prose) |
 | [docs/architecture-diagram.md](docs/architecture-diagram.md) | Mermaid component / sequence / class diagrams |
 | [docs/use-case-diagram.md](docs/use-case-diagram.md) | Actors and dashboard use cases (Mermaid) |
