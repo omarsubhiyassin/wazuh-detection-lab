@@ -3,8 +3,13 @@
 
   Custom rule IDs use the 100000+ range. Every detection carries a
   <mitre><id>Txxxx</id></mitre> block and has a sample + expected result under
-  detections/tests/. Field names below were confirmed with `wazuh-logtest`
-  against the generator's output (all our events decode via the `json` decoder).
+  detections/tests/.
+
+  DUAL-DECODER: Windows detections fire for BOTH real endpoints (Sysmon/Security
+  via the windows_eventchannel decoder, anchored on the built-in sysmon_eventN /
+  Security base rules) AND the synthetic generator regression suite (json
+  decoder). Each detection lists both base rule IDs in <if_sid> (comma = OR).
+  Verified: rule 100101 fires on a real enrolled Windows host end-to-end.
 
   Layering: these are per-event SIGNATURE rules (Phase 3). Frequency/correlation
   rules (e.g. brute-force->success composite, DNS-beacon regularity) are Phase 4.
@@ -21,20 +26,28 @@
 <!-- ===================== Execution / Persistence (Sysmon) ==================== -->
 <group name="detection_lab,sysmon,windows,">
 
-  <!-- Base rules match on the win.* fields only (no <decoded_as>) as a first
-       step toward matching BOTH real Sysmon (windows_eventchannel decoder) AND
-       the generator's json-decoded events. Anchoring on decoded_as json used to
-       silently miss every real endpoint event. NOTE: removing decoded_as is
-       necessary but NOT yet sufficient — real eventchannel matching is still
-       being completed (see the fleet task); the generator regression passes. -->
+  <!-- DUAL BASE RULES per Sysmon event type so detections fire for BOTH:
+        * real endpoints — events decoded by windows_eventchannel land in the
+          built-in sysmon_eventN groups, matched via <if_group>;
+        * the synthetic generator (regression suite) — events decoded by the
+          json decoder, matched via <decoded_as>json</decoded_as> + fields.
+       Each detection lists both base IDs in <if_sid> (comma = OR), so one rule
+       body covers real and generator alike. The earlier field-only base was
+       never evaluated for eventchannel events (Wazuh only tests them against
+       rules anchored into the sysmon group tree). -->
   <rule id="100100" level="0">
+    <if_group>sysmon_event1</if_group>
+    <description>Sysmon: process creation (EID 1) — real eventchannel.</description>
+  </rule>
+  <rule id="100105" level="0">
+    <decoded_as>json</decoded_as>
     <field name="win.system.providerName">Microsoft-Windows-Sysmon</field>
     <field name="win.system.eventID" type="pcre2">^1$</field>
-    <description>Sysmon: process creation (Event ID 1).</description>
+    <description>Sysmon: process creation (EID 1) — generator json.</description>
   </rule>
 
   <rule id="100101" level="12">
-    <if_sid>100100</if_sid>
+    <if_sid>100100,100105</if_sid>
     <field name="win.eventdata.image" type="pcre2">(?i)\\(powershell|pwsh)\.exe$</field>
     <field name="win.eventdata.commandLine" type="pcre2">(?i)\s-e[a-z]*\s+[A-Za-z0-9+/=]{30,}</field>
     <description>Encoded PowerShell command line executed (possible obfuscated payload).</description>
@@ -44,7 +57,7 @@
   </rule>
 
   <rule id="100110" level="10">
-    <if_sid>100100</if_sid>
+    <if_sid>100100,100105</if_sid>
     <field name="win.eventdata.image" type="pcre2">(?i)\\schtasks\.exe$</field>
     <field name="win.eventdata.commandLine" type="pcre2">(?i)/create</field>
     <description>Scheduled task created via schtasks.exe (possible persistence).</description>
@@ -54,9 +67,14 @@
   </rule>
 
   <rule id="100200" level="0">
+    <if_group>sysmon_event3</if_group>
+    <description>Sysmon: network connection (EID 3) — real eventchannel.</description>
+  </rule>
+  <rule id="100205" level="0">
+    <decoded_as>json</decoded_as>
     <field name="win.system.providerName">Microsoft-Windows-Sysmon</field>
     <field name="win.system.eventID" type="pcre2">^3$</field>
-    <description>Sysmon: network connection (Event ID 3).</description>
+    <description>Sysmon: network connection (EID 3) — generator json.</description>
   </rule>
 
 </group>
@@ -64,11 +82,24 @@
 <!-- ===================== Credential Access (LSASS dumping) ================== -->
 <group name="detection_lab,sysmon,windows,credential_access,">
 
+  <!-- Dual base for Sysmon EID10 (process access): real via sysmon_event_10,
+       generator via json. -->
+  <rule id="100710" level="0">
+    <if_group>sysmon_event_10</if_group>
+    <description>Sysmon: process access (EID 10) — real eventchannel.</description>
+  </rule>
+  <rule id="100715" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="win.system.providerName">Microsoft-Windows-Sysmon</field>
+    <field name="win.system.eventID" type="pcre2">^10$</field>
+    <description>Sysmon: process access (EID 10) — generator json.</description>
+  </rule>
+
   <!-- The read: a non-system process opens LSASS memory with read rights.
        Legit accessors (AV, wininit, svchost, ...) are allow-listed via negate,
        so this fires on the mask+target regardless of which tool is used. -->
   <rule id="100700" level="13">
-    <field name="win.system.eventID" type="pcre2">^10$</field>
+    <if_sid>100710,100715</if_sid>
     <field name="win.eventdata.targetImage" type="pcre2">(?i)\\lsass\.exe$</field>
     <field name="win.eventdata.grantedAccess" type="pcre2">(?i)^0x(1010|1410|1418|1438|143a|1fffff)$</field>
     <field name="win.eventdata.sourceImage" negate="yes" type="pcre2">(?i)\\(wininit|csrss|services|lsass|MsMpEng|MpDefenderCoreService|SenseCncProxy|svchost)\.exe$</field>
@@ -80,7 +111,7 @@
 
   <!-- The command: known LSASS-dump tooling / techniques on the command line. -->
   <rule id="100701" level="13">
-    <if_sid>100100</if_sid>
+    <if_sid>100100,100105</if_sid>
     <field name="win.eventdata.commandLine" type="pcre2">(?i)(-ma\s+lsass|procdump.{0,40}lsass|comsvcs\.dll.{0,20}minidump|rundll32.{0,40}minidump|sekurlsa|out-minidump|nanodump)</field>
     <description>LSASS credential-dump tooling on the command line.</description>
     <mitre>
@@ -93,9 +124,22 @@
 <!-- ===================== Defense Evasion (log clearing) ===================== -->
 <group name="detection_lab,windows,defense_evasion,">
 
+  <!-- Dual base for Security 1102: real events chain off the Windows Security
+       base rule 60100; generator events via json. -->
+  <rule id="100610" level="0">
+    <if_sid>60100</if_sid>
+    <field name="win.system.eventID" type="pcre2">^1102$</field>
+    <description>Security 1102 (audit log cleared) — real eventchannel.</description>
+  </rule>
+  <rule id="100615" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="win.system.eventID" type="pcre2">^1102$</field>
+    <description>Security 1102 (audit log cleared) — generator json.</description>
+  </rule>
+
   <!-- The effect: Windows itself logs 1102 when the Security audit log is cleared. -->
   <rule id="100600" level="12">
-    <field name="win.system.eventID" type="pcre2">^1102$</field>
+    <if_sid>100610,100615</if_sid>
     <description>Windows Security audit log was cleared (indicator removal).</description>
     <mitre>
       <id>T1070.001</id>
@@ -104,7 +148,7 @@
 
   <!-- The command: catches the clear even if 1102 auditing is disabled. -->
   <rule id="100601" level="12">
-    <if_sid>100100</if_sid>
+    <if_sid>100100,100105</if_sid>
     <field name="win.eventdata.image" type="pcre2">(?i)\\wevtutil\.exe$</field>
     <field name="win.eventdata.commandLine" type="pcre2">(?i)\s(cl|clear-log)\s</field>
     <description>Event log cleared via wevtutil (indicator removal).</description>
@@ -119,7 +163,7 @@
 <group name="detection_lab,sysmon,windows,lateral_movement,">
 
   <rule id="100500" level="12">
-    <if_sid>100100</if_sid>
+    <if_sid>100100,100105</if_sid>
     <field name="win.eventdata.parentImage" type="pcre2">(?i)\\PSEXESVC\.exe$</field>
     <description>Remote command execution via the PsExec service (lateral movement).</description>
     <mitre>
@@ -132,16 +176,27 @@
 <!-- ===================== Persistence (Security 4698) ========================= -->
 <group name="detection_lab,windows,security,">
 
+  <!-- Dual base for Security 4698: real 4698 is an audit-success event, so it
+       chains off built-in rule 60103; generator events via json. -->
   <rule id="100120" level="8">
+    <if_sid>60103</if_sid>
     <field name="win.system.eventID" type="pcre2">^4698$</field>
-    <description>Windows: a scheduled task was created (Security 4698).</description>
+    <description>Windows: a scheduled task was created (Security 4698) — real eventchannel.</description>
+    <mitre>
+      <id>T1053.005</id>
+    </mitre>
+  </rule>
+  <rule id="100125" level="8">
+    <decoded_as>json</decoded_as>
+    <field name="win.system.eventID" type="pcre2">^4698$</field>
+    <description>Windows: a scheduled task was created (Security 4698) — generator json.</description>
     <mitre>
       <id>T1053.005</id>
     </mitre>
   </rule>
 
   <rule id="100121" level="12">
-    <if_sid>100120</if_sid>
+    <if_sid>100120,100125</if_sid>
     <field name="win.eventdata.taskContent" type="pcre2">(?i)powershell|pwsh|-enc|cmd\.exe|\.ps1|downloadstring|net\.webclient|invoke-expression</field>
     <description>Scheduled task registered to launch a suspicious interpreter/command.</description>
     <mitre>
@@ -240,7 +295,7 @@
        by processGuid, not host) opens an outbound network connection. Ties the
        execution to the ingress tool transfer with process-level precision. -->
   <rule id="100430" level="13" timeframe="300">
-    <if_sid>100200</if_sid>
+    <if_sid>100200,100205</if_sid>
     <if_matched_sid>100101</if_matched_sid>
     <same_field>win.eventdata.processGuid</same_field>
     <description>Download cradle: an encoded-PowerShell process made an outbound network connection.</description>
