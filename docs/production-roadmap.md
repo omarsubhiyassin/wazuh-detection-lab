@@ -43,15 +43,19 @@ The stack works but leaks disk and requires someone watching a screen.
 - The synthetic **generator becomes the regression suite** — every rules change must
   keep measured recall at 100%.
 
-## Phase 4 — Detection engineering as a discipline
-- **CI**: every rules PR runs the logtest harness; merge deploys to the manager and
-  re-runs the validation harness. The pieces exist; this wires them together.
-- **Tuning workflow**: baseline real telemetry, encode suppressions as data (like the
-  LSASS allowlist), track FP rate per rule.
-- **Runbooks**: one page per detection — meaning, triage, escalation. Extends
-  [detections.md](detections.md).
-- **Coverage cadence**: regenerate the ATT&CK Navigator layer on a schedule so
-  coverage stays measured, not aspirational.
+## Phase 4 — Detection engineering as a discipline ✅
+- **CI** ✅: [`.github/workflows/detections-ci.yml`](../.github/workflows/detections-ci.yml)
+  lints `local_rules.xml` (XML + unique IDs) and runs the full logtest harness against a
+  fresh pinned Wazuh manager on every change to `detections/**`. Verified green on GitHub.
+- **Safe deploy** ✅: [`detections/deploy-rules.sh`](../detections/deploy-rules.sh) —
+  pre-flight XML check, back up live rules, restart, verify analysisd came back, smoke-test
+  with the harness, and **auto-rollback** if anything fails (a bad rule otherwise takes the
+  whole manager down). CI validates in the cloud; deploy is local because the manager is
+  single-tenant/local — for a real remote manager a self-hosted runner would deploy on merge.
+- **Runbooks** ✅: [runbooks.md](runbooks.md) — per-detection triage/escalation, plus the
+  tuning workflow (fix FPs as allow-list data + a benign test sample guarded by CI).
+- **Coverage cadence**: `validation/validate.py` regenerates `coverage.md` + the ATT&CK
+  Navigator layer from live indexed data; schedule it via cron (needs the running stack).
 
 ## Phase 5 — SOC operations layer
 - **Triage state**: acknowledge/investigate/close on alerts — either TheHive
