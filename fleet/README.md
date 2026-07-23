@@ -38,6 +38,16 @@ The existing rules already target the live Sysmon eventchannel schema
 rule changes — e.g. running an encoded PowerShell command fires rule 100101
 (T1059.001) and pages Slack.
 
+The installer also enables the audit **subcategories** our Security-channel
+rules need but Windows leaves off by default — currently *Other Object Access
+Events*, so scheduled-task creation logs event **4698** (rules 100120/100121).
+Sysmon covers process/network/handle activity; this fills the Security-channel
+gaps. To apply it to an already-enrolled host without re-running the installer:
+
+```powershell
+auditpol /set /subcategory:"{0CCE9227-69AE-11D9-BED3-505054503030}" /success:enable /failure:enable
+```
+
 ## Linux ([linux/](linux/))
 
 Installs auditd + the curated [audit.rules](linux/audit.rules) and the pinned

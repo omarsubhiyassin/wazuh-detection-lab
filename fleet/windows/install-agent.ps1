@@ -72,6 +72,21 @@ if (Get-Service -Name Sysmon64 -ErrorAction SilentlyContinue) {
   & "$sysmonDir\Sysmon64.exe" -accepteula -i $sysmonCfg
 }
 
+# --- 1b. Audit policy --------------------------------------------------------
+# Some detections key on Windows Security-channel events that are NOT audited by
+# default. Enable the subcategories our rules depend on (Sysmon covers process /
+# network / handle activity; this fills the Security-channel gaps). Subcategory
+# GUIDs are used instead of names because names are localized. Idempotent.
+Write-Host "Enabling required audit subcategories ..."
+$auditSubs = @(
+  # Other Object Access Events -> 4698/4699 scheduled-task create/delete (rules 100120/100121)
+  '{0CCE9227-69AE-11D9-BED3-505054503030}'
+)
+foreach ($guid in $auditSubs) {
+  & auditpol /set /subcategory:"$guid" /success:enable /failure:enable | Out-Null
+}
+# Note: 1102 (Security log cleared) is emitted regardless of audit policy.
+
 # --- 2. Wazuh agent MSI -------------------------------------------------------
 $msi = "$WorkDir\wazuh-agent-$WazuhVersion.msi"
 Write-Host "Fetching Wazuh agent $WazuhVersion ..."
