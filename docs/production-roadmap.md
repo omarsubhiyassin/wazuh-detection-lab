@@ -57,13 +57,18 @@ The stack works but leaks disk and requires someone watching a screen.
 - **Coverage cadence**: `validation/validate.py` regenerates `coverage.md` + the ATT&CK
   Navigator layer from live indexed data; schedule it via cron (needs the running stack).
 
-## Phase 5 — SOC operations layer
-- **Triage state**: acknowledge/investigate/close on alerts — either TheHive
-  integration or lightweight status in the custom dashboard (adds a deliberate,
-  least-privilege write path).
-- **Dashboard RBAC**: multiple users, analyst vs admin, audit log of access —
-  extends the existing session-auth layer.
-- **Escalation policy**: who gets the level-15 page at 3am, in writing.
+## Phase 5 — SOC operations layer ✅
+- **Triage state** ✅: acknowledge/investigate/close + assignee + note per alert,
+  attributed to the acting user. A deliberate least-privilege write path kept OUT
+  of the indexer (a persisted store on the BFF); merged into the alert feed as a
+  badge + drawer controls. analyst+ only.
+- **Dashboard RBAC** ✅: `dashboard/users.json` directory with roles
+  viewer &lt; analyst &lt; admin; `requireRole` gates write/admin endpoints;
+  `npm run add-user` manages users. Sessions carry the role.
+- **Audit log** ✅: append-only JSONL of logins/logouts and triage actions,
+  admin-only panel. Verified end-to-end in the browser against live data.
+- **Escalation policy** ✅: [escalation-policy.md](escalation-policy.md) — severity
+  tiers, response times, on-call/incident roles, auto-escalation, review cadence.
 
 ## Phase 6 — Productization (managed single-tenant)
 - **Tenant provisioning**: wrap bootstrap in Terraform/cloud-init — "new org" =
