@@ -1,0 +1,79 @@
+name: detections-ci
+
+# Detection-engineering CI: every change to the rules or their tests is linted
+# and run through the same wazuh-logtest harness used locally, against a fresh
+# pinned Wazuh manager. A rule can no longer regress silently — the frozen
+# samples in detections/tests/ must keep firing (and benign samples stay quiet).
+
+on:
+  push:
+    paths:
+      - 'detections/**'
+      - '.github/workflows/detections-ci.yml'
+  pull_request:
+    paths:
+      - 'detections/**'
+      - '.github/workflows/detections-ci.yml'
+  workflow_dispatch:
+
+# Keep in sync with WAZUH_IMAGE_TAG in infra/.env.example (Docker Hub tag, no 'v').
+env:
+  WAZUH_IMAGE_TAG: '4.14.6'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install xmllint
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libxml2-utils
+      - name: XML well-formedness
+        # local_rules.xml is a multi-root Wazuh fragment (several <group>), so
+        # wrap it in a synthetic root before validating.
+        run: |
+          { echo '<root>'; cat detections/rules/local_rules.xml; echo '</root>'; } \
+            | xmllint --noout - && echo "XML well-formed"
+      - name: Unique rule IDs
+        run: |
+          dupes=$(grep -oE 'rule id="[0-9]+"' detections/rules/local_rules.xml \
+            | sort | uniq -d)
+          if [ -n "$dupes" ]; then
+            echo "Duplicate rule IDs found:"; echo "$dupes"; exit 1
+          fi
+          echo "no duplicate rule IDs ($(grep -coE 'rule id="[0-9]+"' \
+            detections/rules/local_rules.xml) rules)"
+
+  logtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start a fresh Wazuh manager
+        run: |
+          docker run -d --name wz "wazuh/wazuh-manager:${WAZUH_IMAGE_TAG}"
+          echo "Waiting for analysisd + wazuh-logtest ..."
+          for i in $(seq 1 60); do
+            if docker exec wz sh -c 'test -x /var/ossec/bin/wazuh-logtest \
+                && /var/ossec/bin/wazuh-control status 2>/dev/null \
+                   | grep -q "wazuh-analysisd is running"'; then
+              echo "manager ready after ~$((i*5))s"; exit 0
+            fi
+            sleep 5
+          done
+          echo "manager did not become ready" >&2
+          docker logs wz | tail -40; exit 1
+
+      - name: Load the custom rules
+        run: |
+          docker cp detections/rules/local_rules.xml \
+            wz:/var/ossec/etc/rules/local_rules.xml
+          docker exec wz chown wazuh:wazuh /var/ossec/etc/rules/local_rules.xml
+          docker exec wz /var/ossec/bin/wazuh-control restart
+          for i in $(seq 1 30); do
+            docker exec wz sh -c '/var/ossec/bin/wazuh-control status 2>/dev/null \
+              | grep -q "wazuh-analysisd is running"' && break
+            sleep 4
+          done
+
+      - name: Run the detection test harness
+        run: MANAGER=wz bash detections/tests/run_logtest.sh
