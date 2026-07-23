@@ -41,3 +41,8 @@ venv/
 Thumbs.db
 .idea/
 .vscode/
+
+# --- Dashboard runtime state (secrets / operational data) ---
+dashboard/users.json
+dashboard/triage-state.json
+dashboard/audit.log

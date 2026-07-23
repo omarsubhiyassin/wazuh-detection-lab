@@ -120,3 +120,35 @@ td.desc { max-width: 420px; }
 .mitre-row { display: flex; gap: 10px; align-items: center; }
 .raw { background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
   padding: 10px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; font-size: 12px; }
+
+/* --- RBAC + triage (Phase 5) --- */
+.role-badge { font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+  padding: 2px 7px; border-radius: 10px; border: 1px solid var(--border); color: var(--text); }
+.role-admin { background: rgba(219,109,40,.18); border-color: var(--high); color: #ffcfa8; }
+.role-analyst { background: rgba(31,111,235,.18); border-color: var(--tag); color: #79c0ff; }
+.role-viewer { background: var(--panel-2); color: var(--muted); }
+
+.t-badge { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px;
+  border: 1px solid var(--border); text-transform: capitalize; }
+.t-new { color: var(--muted); }
+.t-acknowledged { background: rgba(31,111,235,.15); border-color: var(--tag); color: #79c0ff; }
+.t-investigating { background: rgba(210,153,34,.15); border-color: var(--med); color: #e3b341; }
+.t-closed { background: rgba(63,185,80,.15); border-color: var(--accent); color: #56d364; }
+
+.triage { border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2);
+  padding: 12px; margin: 14px 0; }
+.triage h4 { margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+.triage-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.triage label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: 12px; }
+.triage-note { display: block; margin-top: 8px; }
+.triage textarea { background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px; font: inherit; width: 100%; resize: vertical; }
+.triage-save { margin-top: 10px; background: var(--tag); color: #fff; border: none;
+  border-radius: 6px; padding: 7px 14px; cursor: pointer; }
+.triage-save:disabled { opacity: .5; cursor: default; }
+.t-meta { font-size: 11px; margin: 8px 0 0; }
+
+table.audit td { font-size: 12px; }
+.audit-login { background: rgba(63,185,80,.15); border-color: var(--accent); color: #56d364; }
+.audit-logout { color: var(--muted); }
+.audit-triage { background: rgba(31,111,235,.15); border-color: var(--tag); color: #79c0ff; }

@@ -10,6 +10,7 @@
     "dev:web": "vite",
     "typecheck": "tsc --noEmit",
     "hash-password": "node scripts/hash-password.mjs",
+    "add-user": "node scripts/manage-users.mjs",
     "build": "tsc --noEmit && vite build",
     "start": "NODE_ENV=production node --env-file-if-exists=.env server/index.js"
   },

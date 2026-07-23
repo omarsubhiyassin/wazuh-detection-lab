@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Alert, Filters, Stats } from "./types";
+import type { Alert, Filters, Session, Stats, TriageState } from "./types";
 import { getAlerts, getSession, getStats, logout, HttpError } from "./api";
 import { AttackMatrix } from "./components/AttackMatrix";
 import { AlertTable } from "./components/AlertTable";
 import { AlertDrawer } from "./components/AlertDrawer";
+import { AuditPanel } from "./components/AuditPanel";
 import { Login } from "./components/Login";
 import { TECHNIQUES } from "./attack";
 
@@ -29,21 +30,22 @@ function TimeSpark({ data }: { data: Stats["overTime"] }) {
 }
 
 export function App() {
-  // undefined = session check in flight, null = signed out, string = username.
-  const [user, setUser] = useState<string | null | undefined>(undefined);
+  // undefined = session check in flight, null = signed out, Session = signed in.
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [filters, setFilters] = useState<Filters>({ range: "7d" });
   const [stats, setStats] = useState<Stats | null>(null);
   const [data, setData] = useState<{ total: number; alerts: Alert[] }>({ total: 0, alerts: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Alert | null>(null);
+  const [showAudit, setShowAudit] = useState(false);
 
   useEffect(() => {
-    getSession().then((s) => setUser(s.user)).catch(() => setUser(null));
+    getSession().then(setSession).catch(() => setSession(null));
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!session) return;
     let live = true;
     setLoading(true);
     setError(null);
@@ -52,12 +54,18 @@ export function App() {
       .catch((e) => {
         if (!live) return;
         // Session expired mid-use: drop back to the login screen.
-        if (e instanceof HttpError && e.status === 401) setUser(null);
+        if (e instanceof HttpError && e.status === 401) setSession(null);
         else setError(String(e));
       })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [filters, user]);
+  }, [filters, session]);
+
+  // Patch an alert's triage state in place after a successful update.
+  const applyTriage = (id: string, t: TriageState) => {
+    setData((d) => ({ ...d, alerts: d.alerts.map((a) => a.id === id ? { ...a, triage: t } : a) }));
+    setSelected((s) => s && s.id === id ? { ...s, triage: t } : s);
+  };
 
   const coveredCount = useMemo(() => {
     const known = Object.keys(TECHNIQUES);
@@ -67,8 +75,8 @@ export function App() {
 
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
 
-  if (user === undefined) return null; // session check in flight
-  if (user === null) return <Login onLogin={setUser} />;
+  if (session === undefined) return null; // session check in flight
+  if (session === null) return <Login onLogin={setSession} />;
 
   return (
     <div className="app">
@@ -94,8 +102,12 @@ export function App() {
             onChange={(e) => set({ host: e.target.value || undefined })} />
           <input placeholder="search…" value={filters.search ?? ""}
             onChange={(e) => set({ search: e.target.value || undefined })} />
-          <span className="session muted">{user}</span>
-          <button className="linkish" onClick={() => { logout().finally(() => setUser(null)); }}>
+          <span className="session muted">{session.user}</span>
+          <span className={`role-badge role-${session.role}`}>{session.role}</span>
+          {session.role === "admin" && (
+            <button className="linkish" onClick={() => setShowAudit(true)}>audit log</button>
+          )}
+          <button className="linkish" onClick={() => { logout().finally(() => setSession(null)); }}>
             sign out
           </button>
         </div>
@@ -129,7 +141,10 @@ export function App() {
 
       <AlertTable alerts={data.alerts} total={data.total} loading={loading} onSelect={setSelected} />
 
-      <AlertDrawer alert={selected} onClose={() => setSelected(null)} />
+      <AlertDrawer alert={selected} role={session.role} onClose={() => setSelected(null)}
+        onTriaged={applyTriage} onExpired={() => setSession(null)} />
+
+      {showAudit && <AuditPanel onClose={() => setShowAudit(false)} />}
     </div>
   );
 }

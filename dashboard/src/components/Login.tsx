@@ -1,7 +1,8 @@
 import { FormEvent, useState } from "react";
+import type { Session } from "../types";
 import { login } from "../api";
 
-export function Login({ onLogin }: { onLogin: (user: string) => void }) {
+export function Login({ onLogin }: { onLogin: (s: Session) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -12,7 +13,7 @@ export function Login({ onLogin }: { onLogin: (user: string) => void }) {
     setBusy(true);
     setError(null);
     login(username, password)
-      .then((r) => onLogin(r.user))
+      .then(onLogin)
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setBusy(false));
   };

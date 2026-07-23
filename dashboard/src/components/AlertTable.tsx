@@ -38,6 +38,7 @@ export function AlertTable({ alerts, total, loading, onSelect }: Props) {
               <th>Rule</th>
               <th>Description</th>
               <th>Host</th>
+              <th>Triage</th>
             </tr>
           </thead>
           <tbody>
@@ -56,11 +57,16 @@ export function AlertTable({ alerts, total, loading, onSelect }: Props) {
                   <td className="mono">{r.id}</td>
                   <td className="desc">{r.description}</td>
                   <td className="nowrap">{a.source.agent?.name ?? "—"}</td>
+                  <td className="nowrap">
+                    {a.triage
+                      ? <span className={`t-badge t-${a.triage.status}`}>{a.triage.status}</span>
+                      : <span className="muted">—</span>}
+                  </td>
                 </tr>
               );
             })}
             {!loading && alerts.length === 0 && (
-              <tr><td colSpan={6} className="muted center">No alerts match the current filters.</td></tr>
+              <tr><td colSpan={7} className="muted center">No alerts match the current filters.</td></tr>
             )}
           </tbody>
         </table>

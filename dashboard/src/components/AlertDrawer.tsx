@@ -1,11 +1,80 @@
-import type { Alert } from "../types";
+import { useEffect, useState } from "react";
+import type { Alert, Role, TriageState, TriageStatus } from "../types";
+import { setTriage, HttpError } from "../api";
+
+const STATUSES: TriageStatus[] = ["new", "acknowledged", "investigating", "closed"];
 
 interface Props {
   alert: Alert | null;
+  role: Role;
   onClose: () => void;
+  onTriaged: (id: string, t: TriageState) => void;
+  onExpired: () => void;
 }
 
-export function AlertDrawer({ alert, onClose }: Props) {
+function Triage({ alert, role, onTriaged, onExpired }:
+  { alert: Alert; role: Role; onTriaged: Props["onTriaged"]; onExpired: () => void }) {
+  const t = alert.triage;
+  const [status, setStatus] = useState<TriageStatus>(t?.status ?? "new");
+  const [assignee, setAssignee] = useState(t?.assignee ?? "");
+  const [note, setNote] = useState(t?.note ?? "");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Reset the form when a different alert is opened.
+  useEffect(() => {
+    setStatus(alert.triage?.status ?? "new");
+    setAssignee(alert.triage?.assignee ?? "");
+    setNote(alert.triage?.note ?? "");
+    setErr(null);
+  }, [alert.id]);
+
+  const readOnly = role === "viewer";
+
+  const save = () => {
+    setSaving(true); setErr(null);
+    setTriage(alert.id, { status, assignee: assignee || null, note })
+      .then((r) => onTriaged(alert.id, r.triage))
+      .catch((e) => {
+        if (e instanceof HttpError && e.status === 401) onExpired();
+        else setErr(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => setSaving(false));
+  };
+
+  return (
+    <div className="triage">
+      <h4>Triage {t && <span className={`t-badge t-${t.status}`}>{t.status}</span>}</h4>
+      {readOnly ? (
+        <p className="muted">You have view-only access. Ask an analyst to triage.</p>
+      ) : (
+        <>
+          <div className="triage-row">
+            <label>Status
+              <select value={status} onChange={(e) => setStatus(e.target.value as TriageStatus)}>
+                {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+            <label>Assignee
+              <input value={assignee} placeholder="unassigned"
+                onChange={(e) => setAssignee(e.target.value)} />
+            </label>
+          </div>
+          <label className="triage-note">Note
+            <textarea value={note} rows={2} onChange={(e) => setNote(e.target.value)} />
+          </label>
+          {err && <div className="error">{err}</div>}
+          <button className="triage-save" disabled={saving} onClick={save}>
+            {saving ? "Saving…" : "Save triage"}
+          </button>
+        </>
+      )}
+      {t && <p className="muted t-meta">last updated by {t.updatedBy} · {new Date(t.updatedAt).toLocaleString()}</p>}
+    </div>
+  );
+}
+
+export function AlertDrawer({ alert, role, onClose, onTriaged, onExpired }: Props) {
   if (!alert) return null;
   const s = alert.source;
   const r = s.rule;
@@ -40,6 +109,8 @@ export function AlertDrawer({ alert, onClose }: Props) {
             ))}
           </div>
         ) : null}
+
+        <Triage alert={alert} role={role} onTriaged={onTriaged} onExpired={onExpired} />
 
         <h4>Raw log</h4>
         <pre className="raw">{s.full_log ?? "(no full_log)"}</pre>

@@ -1,4 +1,4 @@
-import type { Alert, Filters, Stats } from "./types";
+import type { Alert, AuditEvent, Filters, Session, Stats, TriageState, TriageStatus } from "./types";
 
 /** Fetch error carrying the HTTP status so callers can react to 401s. */
 export class HttpError extends Error {
@@ -33,9 +33,9 @@ export const getHealth = () =>
 
 // --- Auth ----------------------------------------------------------------
 
-export const getSession = () => getJSON<{ user: string }>(`/api/auth/session`);
+export const getSession = () => getJSON<Session>(`/api/auth/session`);
 
-export async function login(username: string, password: string): Promise<{ user: string }> {
+export async function login(username: string, password: string): Promise<Session> {
   const res = await fetch("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -43,8 +43,27 @@ export async function login(username: string, password: string): Promise<{ user:
   });
   const json = await res.json().catch(() => null);
   if (!res.ok) throw new HttpError(res.status, json?.error ?? `HTTP ${res.status}`);
-  return json as { user: string };
+  return json as Session;
 }
 
 export const logout = () =>
   fetch("/api/auth/logout", { method: "POST" }).then(() => undefined);
+
+// --- Triage + audit ------------------------------------------------------
+
+export async function setTriage(
+  id: string,
+  patch: { status?: TriageStatus; assignee?: string | null; note?: string },
+): Promise<{ id: string; triage: TriageState }> {
+  const res = await fetch(`/api/alerts/${encodeURIComponent(id)}/triage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new HttpError(res.status, json?.error ?? `HTTP ${res.status}`);
+  return json as { id: string; triage: TriageState };
+}
+
+export const getAudit = (limit = 200) =>
+  getJSON<{ events: AuditEvent[] }>(`/api/audit?limit=${limit}`);

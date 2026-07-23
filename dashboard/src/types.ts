@@ -20,9 +20,37 @@ export interface AlertSource {
   decoder?: { name?: string };
 }
 
+export type Role = "viewer" | "analyst" | "admin";
+export type TriageStatus = "new" | "acknowledged" | "investigating" | "closed";
+
+export interface TriageState {
+  status: TriageStatus;
+  assignee: string | null;
+  note: string;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface Session {
+  user: string;
+  role: Role;
+}
+
+export interface AuditEvent {
+  ts: string;
+  action: string;
+  user?: string;
+  role?: string;
+  alertId?: string;
+  status?: string;
+  assignee?: string | null;
+  ip?: string;
+}
+
 export interface Alert {
   id: string;
   source: AlertSource;
+  triage?: TriageState | null;
 }
 
 export interface TechniqueStat {

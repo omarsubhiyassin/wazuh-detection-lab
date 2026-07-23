@@ -8,7 +8,9 @@ import fs from "node:fs";
 import https from "node:https";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { installAuth } from "./auth.js";
+import { installAuth, requireRole } from "./auth.js";
+import * as audit from "./audit.js";
+import * as triage from "./triage.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -86,8 +88,8 @@ app.use(express.json());
 
 // --- Auth ----------------------------------------------------------------------
 // Registers /api/auth/login|logout|session and a session guard on everything
-// else under /api. See server/auth.js.
-installAuth(app);
+// else under /api. Login/logout are recorded to the audit log. See server/auth.js.
+installAuth(app, { onAuthEvent: (e) => audit.record(e) });
 
 // --- API ---------------------------------------------------------------------
 
@@ -150,13 +152,30 @@ app.get("/api/alerts", async (req, res) => {
   try {
     const r = await indexer(`/${encodeURIComponent(ALERTS_INDEX)}/_search`, "POST", body);
     if (r.status >= 400) return res.status(502).json({ error: "indexer", status: r.status, detail: r.json });
+    const hits = r.json.hits?.hits || [];
+    const triageById = triage.getMany(hits.map((h) => h._id));
     res.json({
       total: r.json.hits?.total?.value ?? 0,
-      alerts: (r.json.hits?.hits || []).map((h) => ({ id: h._id, source: h._source })),
+      alerts: hits.map((h) => ({ id: h._id, source: h._source, triage: triageById[h._id] ?? null })),
     });
   } catch (e) {
     res.status(502).json({ error: String(e) });
   }
+});
+
+// --- Triage (analyst+): set/read an alert's workflow state -------------------
+app.post("/api/alerts/:id/triage", requireRole("analyst"), (req, res) => {
+  const { status, assignee, note } = req.body || {};
+  const result = triage.set(req.params.id, { status, assignee, note }, req.session.user);
+  if (!result.ok) return res.status(400).json({ error: result.error });
+  audit.record({ action: "triage", user: req.session.user, alertId: req.params.id,
+    status: result.record.status, assignee: result.record.assignee });
+  res.json({ id: req.params.id, triage: result.record });
+});
+
+// --- Audit log (admin only) ---------------------------------------------------
+app.get("/api/audit", requireRole("admin"), (req, res) => {
+  res.json({ events: audit.readRecent(Math.min(Number(req.query.limit || 200), 1000)) });
 });
 
 // --- Static SPA (production) --------------------------------------------------
