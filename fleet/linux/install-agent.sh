@@ -33,14 +33,23 @@ command -v apt-get >/dev/null || { echo "This installer targets Debian/Ubuntu (a
 # --- 1. auditd + curated ruleset ----------------------------------------------
 echo "[*] Installing auditd ..."
 DEBIAN_FRONTEND=noninteractive apt-get update -qq
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq auditd audispd-plugins
-install -m 640 "$HERE/audit.rules" /etc/audit/rules.d/detection-lab.rules
-if augenrules --load 2>/dev/null && auditctl -l | grep -q dl_exec; then
-  echo "[*] auditd rules loaded."
+# auditd is best-effort: its post-install starts a service that can fail to come
+# up where the kernel lacks audit netlink delivery (common under WSL2). Keep that
+# from aborting the whole install (set -e) and unwedge dpkg so the agent still
+# installs. auth.log/syslog collection works regardless.
+if DEBIAN_FRONTEND=noninteractive apt-get install -y -qq auditd audispd-plugins; then
+  install -m 640 "$HERE/audit.rules" /etc/audit/rules.d/detection-lab.rules
+  if augenrules --load 2>/dev/null && auditctl -l 2>/dev/null | grep -q dl_exec; then
+    echo "[*] auditd rules loaded (syscall/file auditing active)."
+  else
+    echo "[!] auditd installed but rules did not load — this kernel likely lacks"
+    echo "    audit netlink delivery (common under WSL2). Syscall/file auditing is"
+    echo "    unavailable; auth.log/syslog collection still works."
+  fi
 else
-  echo "[!] auditd rules did not load — this kernel may lack audit netlink"
-  echo "    delivery (common under WSL2). File/exec auditing will be unavailable;"
-  echo "    auth.log/syslog collection still works. See fleet/README.md."
+  echo "[!] auditd could not be installed/started (common under WSL2). Continuing"
+  echo "    without it; auth.log/syslog still collected. Bare-metal/VM Linux is fine."
+  dpkg --configure -a 2>/dev/null || true
 fi
 
 # --- 2. Wazuh agent (pinned) --------------------------------------------------
@@ -54,8 +63,14 @@ WAZUH_MANAGER="$MANAGER" WAZUH_REGISTRATION_SERVER="$MANAGER" \
   WAZUH_AGENT_NAME="$AGENT_NAME" WAZUH_AGENT_GROUP="$AGENT_GROUP" \
   dpkg -i "$TMP/wazuh-agent.deb"
 
-systemctl daemon-reload
-systemctl enable --now wazuh-agent
+# Start the agent via systemd where available, else fall back to wazuh-control
+# (covers WSL/containers without systemd as PID 1).
+if command -v systemctl >/dev/null 2>&1 && systemctl daemon-reload 2>/dev/null; then
+  systemctl enable --now wazuh-agent
+else
+  echo "[*] systemd not managing services here — starting via wazuh-control."
+  /var/ossec/bin/wazuh-control start
+fi
 echo ""
 echo "[*] Done. $AGENT_NAME is enrolling into '$AGENT_GROUP'."
 echo "    Verify: docker exec single-node-wazuh.manager-1 /var/ossec/bin/agent_control -l"
