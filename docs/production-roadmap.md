@@ -70,13 +70,25 @@ The stack works but leaks disk and requires someone watching a screen.
 - **Escalation policy** ✅: [escalation-policy.md](escalation-policy.md) — severity
   tiers, response times, on-call/incident roles, auto-escalation, review cadence.
 
-## Phase 6 — Productization (managed single-tenant)
-- **Tenant provisioning**: wrap bootstrap in Terraform/cloud-init — "new org" =
-  one pipeline run producing an isolated VM + stack + creds + enrollment package.
-- **Central fleet view**: per-tenant healthchecks reporting to one place.
-- **Docs as product**: onboarding guide, agent packages, security one-pager — what
-  an org's IT team needs to approve.
+## Phase 6 — Productization (managed single-tenant) ✅
+- **Tenant provisioning** ✅: [`infra/provision-env.sh`](../infra/provision-env.sh)
+  generates a fresh `.env` with random per-tenant secrets + a one-time credentials
+  file (zero manual passwords); [`deploy/cloud-init.yaml`](../deploy/cloud-init.yaml)
+  turns a bare Ubuntu VM into a running tenant unattended;
+  [`deploy/terraform/`](../deploy/terraform/) provisions the VM + firewall (only
+  agent ports exposed; everything else localhost/SSH-tunnel) and feeds the
+  cloud-init. `bootstrap --check-env` gates deploy-readiness. Verified: provisioned
+  `.env` passes bootstrap validation; defaults still rejected.
+- **Central fleet view** ✅ (lightweight): every tenant's healthcheck tags its
+  Slack alerts with `TENANT_NAME`, so one channel is a red/green fleet board. A
+  dedicated multi-tenant status page is future work.
+- **Docs as product** ✅: [deploy/README.md](../deploy/README.md) (provisioning),
+  [onboarding.md](onboarding.md) (stand-up checklist + a security one-pager an
+  org's IT can approve).
+
+> Honest scope: `terraform apply` / a live cloud VM needs the operator's cloud
+> account, so the cloud path is built + validated (YAML, embedded bash, HCL
+> structure) but not applied here. The secret-generation keystone is fully tested.
 
 **Sequencing:** 1–2 make the box trustworthy, 3 makes it real, 4–5 make it operable
-by people other than the author, 6 makes it repeatable. Each phase independently
-demoable, as in v1.
+by people other than the author, 6 makes it repeatable. All six complete.

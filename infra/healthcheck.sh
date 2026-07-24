@@ -92,11 +92,14 @@ PREV_STATUS="OK"; PREV_POST=0
 [[ -f "$STATE_FILE" ]] && read -r PREV_STATUS PREV_POST < "$STATE_FILE" || true
 
 HOST="$(hostname)"
+# Fleet identity: with many tenants posting to one channel, name the tenant so
+# alerts are attributable. Falls back to the hostname when TENANT_NAME is unset.
+WHO="${TENANT_NAME:+$TENANT_NAME on }\`$HOST\`"
 if (( ${#FAILURES[@]} > 0 )); then
   DETAIL="$(printf ' • %s\n' "${FAILURES[@]}")"
   echo "UNHEALTHY:"; printf '%s' "$DETAIL"
   if [[ "$PREV_STATUS" != FAIL ]] || (( NOW - PREV_POST >= REMIND_HOURS * 3600 )); then
-    notify ":rotating_light: *detection-lab SIEM unhealthy* on \`$HOST\`
+    notify ":rotating_light: *detection-lab SIEM unhealthy* — $WHO
 $DETAIL"
     echo "FAIL $NOW" > "$STATE_FILE"
   else
@@ -106,7 +109,7 @@ $DETAIL"
 else
   echo "healthy"
   if [[ "$PREV_STATUS" == FAIL ]]; then
-    notify ":white_check_mark: *detection-lab SIEM recovered* on \`$HOST\` — all checks passing."
+    notify ":white_check_mark: *detection-lab SIEM recovered* — $WHO — all checks passing."
   fi
   echo "OK $NOW" > "$STATE_FILE"
 fi

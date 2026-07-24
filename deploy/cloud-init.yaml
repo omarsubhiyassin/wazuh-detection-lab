@@ -1,0 +1,70 @@
+#cloud-config
+# Unattended tenant bootstrap: a fresh Ubuntu 22.04+ VM becomes a running
+# detection-lab tenant with no manual steps. Terraform (deploy/terraform/) feeds
+# this as user-data, substituting the __PLACEHOLDER__ tokens. Standalone use:
+# replace the tokens by hand and pass as user-data.
+#
+# Substitutions:
+#   __GIT_REPO__    clone URL, incl. auth for a private repo (deploy token or
+#                   git@ SSH with a key provisioned separately)
+#   __TENANT_NAME__ fleet identifier for this deployment
+#   __SLACK_WEBHOOK__ Slack incoming-webhook URL (or empty to disable)
+
+package_update: true
+package_upgrade: false
+packages:
+  - git
+  - curl
+  - ca-certificates
+  - openssl
+
+write_files:
+  # The indexer (OpenSearch) refuses to start below this — set before Docker.
+  - path: /etc/sysctl.d/99-wazuh.conf
+    content: |
+      vm.max_map_count=262144
+  # Provisioning driver, run once by cloud-init (see runcmd).
+  - path: /opt/provision-tenant.sh
+    permissions: '0700'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      REPO="__GIT_REPO__"
+      TENANT="__TENANT_NAME__"
+      SLACK="__SLACK_WEBHOOK__"
+      ROOT=/opt/detection-lab
+
+      # Docker Engine (official convenience script).
+      if ! command -v docker >/dev/null; then
+        curl -fsSL https://get.docker.com | sh
+        systemctl enable --now docker
+      fi
+      # Node (for the custom-dashboard password hash) — optional but nice.
+      if ! command -v node >/dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs || true
+      fi
+
+      [ -d "$ROOT" ] || git clone --depth 1 "$REPO" "$ROOT"
+      cd "$ROOT/infra"
+
+      # Fresh secrets — zero manual entry. Non-interactive.
+      if [ ! -f .env ]; then
+        ./provision-env.sh --tenant "$TENANT" --root "$ROOT"
+        [ -n "$SLACK" ] && sed -i "s#^SLACK_WEBHOOK_URL=.*#SLACK_WEBHOOK_URL=${SLACK}#" .env
+      fi
+
+      # vm.max_map_count is set via sysctl.d; ensure it is live for this boot.
+      sysctl --system >/dev/null 2>&1 || true
+
+      # Validate, then deploy the whole stack.
+      ./bootstrap.sh --check-env
+      ./bootstrap.sh
+
+      echo "Tenant '$TENANT' provisioned. Credentials (save to vault, then delete):"
+      echo "  $ROOT/infra/.provision-credentials.txt"
+
+runcmd:
+  - sysctl --system
+  - /opt/provision-tenant.sh 2>&1 | tee /var/log/provision-tenant.log
+
+final_message: "detection-lab tenant provisioning finished after $UPTIME s — see /var/log/provision-tenant.log"

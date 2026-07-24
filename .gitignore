@@ -46,3 +46,7 @@ Thumbs.db
 dashboard/users.json
 dashboard/triage-state.json
 dashboard/audit.log
+
+# Provisioning output — plaintext one-time credentials
+infra/.provision-credentials.txt
+*.provision-credentials.txt
