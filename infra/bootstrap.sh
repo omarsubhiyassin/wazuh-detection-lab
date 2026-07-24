@@ -61,6 +61,13 @@ else
   log "ALLOW_DEFAULT_CREDS=true — skipping secret validation (throwaway lab mode)."
 fi
 
+# --check-env: validate .env (secrets + required vars) and exit without
+# deploying. Used by provisioning/CI to confirm an .env is deploy-ready.
+if [[ "${1:-}" == "--check-env" ]]; then
+  log ".env validation passed — deploy-ready (--check-env, not deploying)."
+  exit 0
+fi
+
 # --- Preflight: kernel setting the indexer needs -----------------------------
 CURRENT_MMC="$(sysctl -n vm.max_map_count 2>/dev/null || echo 0)"
 if (( CURRENT_MMC < 262144 )); then
