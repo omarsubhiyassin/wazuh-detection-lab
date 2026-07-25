@@ -1,0 +1,10 @@
+# Keep the build context small and keep secrets/state OUT of the image.
+node_modules
+dist
+.env
+certs
+users.json
+triage-state.json
+audit.log
+*.log
+scripts

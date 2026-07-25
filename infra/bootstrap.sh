@@ -122,6 +122,37 @@ else
   log "Indexer certificates already present."
 fi
 
+# --- Dashboard prerequisites (must exist BEFORE compose up) -------------------
+# The detection-dashboard service has an env_file and bind-mounts (cert dir,
+# state dir); compose fails on the first `up` if they are missing. Create them
+# now. Full/idempotent seeding (append-TLS etc.) still runs later.
+DASH_DIR="$DETECTION_LAB_ROOT/dashboard"
+mkdir -p "$DASH_DIR/certs" "$DASH_DIR/state"
+if [[ ! -s "$DASH_DIR/certs/dashboard.pem" ]]; then
+  log "Generating the custom-dashboard TLS cert ..."
+  openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
+    -keyout "$DASH_DIR/certs/dashboard-key.pem" -out "$DASH_DIR/certs/dashboard.pem" \
+    -subj "/CN=detection-lab-dashboard" \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" 2>/dev/null
+  chmod 600 "$DASH_DIR/certs/dashboard-key.pem"
+fi
+if [[ ! -f "$DASH_DIR/.env" ]]; then
+  log "Writing $DASH_DIR/.env (custom dashboard config) ..."
+  cat > "$DASH_DIR/.env" <<EOF
+INDEXER_URL=https://localhost:9200
+INDEXER_RO_USER=${CUSTOM_DASHBOARD_RO_USER}
+INDEXER_RO_PASSWORD=${CUSTOM_DASHBOARD_RO_PASSWORD}
+ALERTS_INDEX=wazuh-alerts-*
+PORT=8787
+DASH_USER=admin
+# Generate with: cd dashboard && npm run hash-password
+DASH_PASSWORD_HASH=
+DASH_TLS_CERT=$DASH_DIR/certs/dashboard.pem
+DASH_TLS_KEY=$DASH_DIR/certs/dashboard-key.pem
+DASH_COOKIE_SECURE=true
+EOF
+fi
+
 # --- Bring up the stack with our overlay -------------------------------------
 log "Starting the stack ..."
 compose up -d

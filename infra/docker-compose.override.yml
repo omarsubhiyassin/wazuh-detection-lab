@@ -49,6 +49,36 @@ services:
       - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-kibanaserver}
       - API_PASSWORD=${API_PASSWORD:-MyS3cr37P450r.*-}
 
+  # Custom ATT&CK dashboard (BFF + SPA), run as a stack service so Docker keeps
+  # it alive/restarts it — no fragile host process. Reaches the indexer by
+  # service name on the compose network; served on localhost:8787 over TLS.
+  detection-dashboard:
+    build:
+      context: ${DETECTION_LAB_ROOT}/dashboard
+    image: detection-lab/dashboard:local
+    hostname: detection-dashboard
+    restart: always
+    depends_on:
+      - wazuh.indexer
+    env_file:
+      - ${DETECTION_LAB_ROOT}/dashboard/.env
+    environment:
+      # Override the host-oriented values in dashboard/.env for in-network use.
+      - INDEXER_URL=https://wazuh.indexer:9200
+      - DASH_TLS_CERT=/certs/dashboard.pem
+      - DASH_TLS_KEY=/certs/dashboard-key.pem
+      - PORT=8787
+      # RBAC users + triage/audit state live in a bind-mounted dir so they
+      # survive container recreation (a dir mount is safe if the host path is new).
+      - DASH_USERS_FILE=/app/state/users.json
+      - DASH_TRIAGE_FILE=/app/state/triage-state.json
+      - DASH_AUDIT_FILE=/app/state/audit.log
+    volumes:
+      - ${DETECTION_LAB_ROOT}/dashboard/certs:/certs:ro
+      - ${DETECTION_LAB_ROOT}/dashboard/state:/app/state
+    ports:
+      - "127.0.0.1:8787:8787"
+
   # Linux endpoint that tails the synthetic log generator's output.
   # Enrollment + localfile wiring are finished and verified in Phase 1.
   wazuh.agent.linux:

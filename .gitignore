@@ -50,3 +50,6 @@ dashboard/audit.log
 # Provisioning output — plaintext one-time credentials
 infra/.provision-credentials.txt
 *.provision-credentials.txt
+
+# Dashboard container state (RBAC users, triage, audit)
+dashboard/state/
