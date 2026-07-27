@@ -35,7 +35,12 @@ if (-not $engine) { Warn 'Docker engine did not come up. Open Docker Desktop and
 Info 'starting the stack (indexer, manager, dashboards, agent)...'
 wsl -d $Distro -e bash -lc "cd $SingleNode && docker compose -f docker-compose.yml -f docker-compose.override.yml up -d" *> $null 2>&1
 
-# 3. Wait for the dashboard to answer
+# 3. Wait for the indexer to go green (else the dashboard opens to a 502 while
+#    the indexer is still warming up). Password is read from .env inside WSL.
+Info 'waiting for the indexer to be ready...'
+wsl -d $Distro -e bash -lc 'PW=$(grep "^INDEXER_PASSWORD=" /home/amigo/detection-lab/infra/.env | cut -d= -f2); for i in $(seq 1 60); do s=$(curl -sk -u "admin:$PW" https://localhost:9200/_cluster/health 2>/dev/null | grep -o "\"status\":\"green\""); [ -n "$s" ] && exit 0; sleep 3; done; exit 1' *> $null 2>&1
+
+# 4. Wait for the dashboard itself to answer
 Info 'waiting for the dashboard...'
 $up = $false
 for ($i = 0; $i -lt 50; $i++) {
@@ -45,7 +50,7 @@ for ($i = 0; $i -lt 50; $i++) {
 }
 if (-not $up) { Warn 'dashboard did not respond yet — opening anyway; give it a moment and refresh.' }
 
-# 4. Open in an app window (own icon, no browser chrome)
+# 5. Open in an app window (own icon, no browser chrome)
 $edge   = "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
 $chrome = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
 if (Test-Path $edge)        { Start-Process $edge   "--app=$DashUrl" }
