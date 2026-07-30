@@ -1,0 +1,50 @@
+name: dashboard-ci
+
+# CI for the dashboard BFF + SPA. The suite exists mainly to protect security
+# invariants that are otherwise only asserted in comments: that an analysis pass
+# can never write workflow state, that triage refuses an unnamed actor, and that
+# RBAC actually gates the routes. Those are properties, not features — they must
+# not be able to regress quietly.
+
+on:
+  push:
+    paths:
+      - 'dashboard/**'
+      - '.github/workflows/dashboard-ci.yml'
+  pull_request:
+    paths:
+      - 'dashboard/**'
+      - '.github/workflows/dashboard-ci.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: dashboard
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Keep in sync with the Dockerfile's base image (node:22-slim).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Server syntax check
+        run: for f in server/*.js; do node --check "$f"; done
+
+      - name: Tests
+        run: npm test
+
+      - name: Build the SPA
+        run: npx vite build

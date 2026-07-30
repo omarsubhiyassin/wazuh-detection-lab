@@ -9,6 +9,7 @@
     "dev:server": "node --watch --env-file-if-exists=.env server/index.js",
     "dev:web": "vite",
     "typecheck": "tsc --noEmit",
+    "test": "node --test",
     "hash-password": "node scripts/hash-password.mjs",
     "add-user": "node scripts/manage-users.mjs",
     "build": "tsc --noEmit && vite build",

@@ -39,6 +39,30 @@ npm run dev
 npm run build && npm start   # open http://localhost:8787
 ```
 
+## Tests
+
+```bash
+npm test        # node:test, no test framework dependency
+```
+
+41 tests over `tests/`, run in CI on every dashboard change
+([dashboard-ci.yml](../.github/workflows/dashboard-ci.yml)). They exist to protect
+**security invariants that are otherwise only claims in comments**:
+
+- an analysis pass produces advisory findings only — never `status`, `assignee`, or
+  `updatedBy` — and never writes to the triage store;
+- a re-run cannot reopen or overwrite an alert a human already closed;
+- `triage.set()` refuses to act without a named actor (`undefined`, `""`, `"  "`,
+  non-strings all rejected);
+- RBAC gates each route by role, and the acting username comes from the session, not
+  from anything the caller can set;
+- a forged or logged-out cookie grants nothing, and an unknown username is rejected
+  identically to a wrong password.
+
+Each of those was **mutation-tested**: removing the human-actor guard, letting findings
+carry workflow state, dropping the duplicate grouping, and disabling the role comparison
+each make the suite fail. A test that cannot fail protects nothing.
+
 ## Configuration (`.env`)
 | Var | Default | Meaning |
 |-----|---------|---------|
