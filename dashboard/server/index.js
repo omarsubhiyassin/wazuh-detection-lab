@@ -12,6 +12,7 @@ import { installAuth, requireRole } from "./auth.js";
 import * as audit from "./audit.js";
 import * as triage from "./triage.js";
 import * as analysis from "./analysis.js";
+import * as metrics from "./metrics.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -195,14 +196,58 @@ app.get("/api/alerts", async (req, res) => {
 // to an authenticated analyst+, and the acting username is taken from the
 // session — never from the request body — so a caller cannot act as someone
 // else. The AI layer has no route here by design.
-app.post("/api/alerts/:id/triage", requireRole("analyst"), (req, res) => {
-  const { status, assignee, note, aiVerdict } = req.body || {};
-  const result = triage.set(req.params.id, { status, assignee, note, aiVerdict }, req.session.user);
+app.post("/api/alerts/:id/triage", requireRole("analyst"), async (req, res) => {
+  const { status, assignee, note, aiVerdict, disposition } = req.body || {};
+  // Stamp the alert's identity onto the record from the INDEXER, not from the
+  // request body — the client could claim any rule, and these facts are what
+  // the efficacy metrics are grouped by. Looked up once, then reused.
+  let context;
+  if (!triage.get(req.params.id)?.context) {
+    context = await alertContext(req.params.id);
+  }
+  const result = triage.set(req.params.id,
+    { status, assignee, note, aiVerdict, disposition, context }, req.session.user);
   if (!result.ok) return res.status(400).json({ error: result.error });
   audit.record({ action: "triage", user: req.session.user, alertId: req.params.id,
     status: result.record.status, assignee: result.record.assignee,
-    aiVerdict: result.record.aiVerdict });
+    aiVerdict: result.record.aiVerdict, disposition: result.record.disposition,
+    ruleId: result.record.context?.ruleId ?? null });
   res.json({ id: req.params.id, triage: result.record });
+});
+
+/**
+ * Look up the durable facts about one alert. Denormalized into the triage
+ * record so metrics still work after ISM deletes the alert's index. Returns
+ * undefined if the alert can't be read — triage must not fail because the
+ * lookup did.
+ */
+async function alertContext(id) {
+  try {
+    const r = await indexer(`/${encodeURIComponent(ALERTS_INDEX)}/_search`, "POST", {
+      size: 1,
+      query: { ids: { values: [id] } },
+      _source: ["timestamp", "rule.id", "rule.level", "rule.description", "agent.name"],
+    });
+    const s = r.json?.hits?.hits?.[0]?._source;
+    if (!s) return undefined;
+    return {
+      ruleId: s.rule?.id ?? null,
+      ruleLevel: s.rule?.level ?? null,
+      description: s.rule?.description ?? null,
+      host: s.agent?.name ?? null,
+      alertTs: s.timestamp ?? null,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+// --- Detection efficacy metrics ----------------------------------------------
+// Closes the loop: which of our own rules are noisy, how fast alerts get
+// handled, and how often analysts agreed with the scorer. Read-only aggregate,
+// so any signed-in role may see it.
+app.get("/api/metrics", (_req, res) => {
+  res.json(metrics.compute());
 });
 
 // --- AI analysis (advisory only) ---------------------------------------------

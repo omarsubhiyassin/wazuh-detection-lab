@@ -36,8 +36,36 @@ test("a named human can advance and close an alert", () => {
 
 test("the acting user is recorded on every transition", () => {
   triage.set("alert-3", { status: "acknowledged" }, "first");
-  const second = triage.set("alert-3", { status: "closed", note: "done" }, "second");
+  const second = triage.set("alert-3",
+    { status: "closed", note: "done", disposition: "true-positive" }, "second");
   assert.equal(second.record.updatedBy, "second", "the last actor owns the record");
+});
+
+test("an alert cannot be closed without stating the outcome", () => {
+  // Without this, the efficacy numbers degrade to "of the closures somebody
+  // happened to label", which is not a measurement.
+  const r = triage.set("alert-3b", { status: "closed", note: "done" }, "jo");
+  assert.equal(r.ok, false);
+  assert.match(r.error, /closing requires a disposition/);
+  assert.equal(triage.get("alert-3b"), null);
+});
+
+test("a disposition set earlier still satisfies a later close", () => {
+  triage.set("alert-3c", { status: "investigating", disposition: "benign" }, "jo");
+  assert.ok(triage.set("alert-3c", { status: "closed" }, "jo").ok);
+});
+
+test("clearing the disposition of a closed alert is rejected", () => {
+  triage.set("alert-3d", { status: "closed", disposition: "true-positive" }, "jo");
+  const r = triage.set("alert-3d", { disposition: null }, "jo");
+  assert.equal(r.ok, false, "a closed alert cannot be left with no stated outcome");
+  assert.equal(triage.get("alert-3d").disposition, "true-positive");
+});
+
+test("unknown dispositions are rejected", () => {
+  const r = triage.set("alert-3e", { status: "closed", disposition: "probably-fine" }, "jo");
+  assert.equal(r.ok, false);
+  assert.match(r.error, /disposition must be one of/);
 });
 
 // --- Validation -------------------------------------------------------------
@@ -61,10 +89,21 @@ test("a missing alert id is rejected", () => {
 
 test("agree and disagree are both recorded verbatim", () => {
   for (const v of triage.AI_VERDICTS) {
-    const r = triage.set(`verdict-${v}`, { status: "closed", aiVerdict: v }, "jo");
+    const r = triage.set(`verdict-${v}`,
+      { status: "closed", aiVerdict: v, disposition: "benign" }, "jo");
     assert.ok(r.ok);
     assert.equal(r.record.aiVerdict, v);
   }
+});
+
+test("the AI verdict and the disposition are independent judgements", () => {
+  // "the AI was right to flag this" and "the rule was right to fire" are
+  // different questions, and an analyst can answer them differently.
+  const r = triage.set("alert-independent",
+    { status: "closed", aiVerdict: "agree", disposition: "false-positive" }, "jo");
+  assert.ok(r.ok);
+  assert.equal(r.record.aiVerdict, "agree");
+  assert.equal(r.record.disposition, "false-positive");
 });
 
 test("a verdict can be cleared back to 'not yet judged'", () => {
@@ -76,12 +115,30 @@ test("a verdict can be cleared back to 'not yet judged'", () => {
 // --- Patch semantics --------------------------------------------------------
 
 test("omitted fields keep their previous values", () => {
-  triage.set("alert-7", { status: "investigating", assignee: "jo", note: "context", aiVerdict: "agree" }, "jo");
+  triage.set("alert-7", {
+    status: "investigating", assignee: "jo", note: "context",
+    aiVerdict: "agree", disposition: "true-positive",
+  }, "jo");
   const r = triage.set("alert-7", { status: "closed" }, "sam");
   assert.equal(r.record.assignee, "jo");
   assert.equal(r.record.note, "context");
   assert.equal(r.record.aiVerdict, "agree");
+  assert.equal(r.record.disposition, "true-positive");
   assert.equal(r.record.status, "closed");
+});
+
+test("alert context is stamped once and never overwritten by a later patch", () => {
+  const ctx = { ruleId: "100101", ruleLevel: 12, host: "AMIGO", alertTs: "2026-07-30T00:00:00Z" };
+  triage.set("alert-ctx", { status: "acknowledged", context: ctx }, "jo");
+  const r = triage.set("alert-ctx", { status: "investigating" }, "jo");
+  assert.deepEqual(r.record.context, ctx, "metrics attribution must survive later edits");
+});
+
+test("the first touch time is preserved across later transitions", () => {
+  const first = triage.set("alert-touch", { status: "acknowledged" }, "jo").record.firstTouchedAt;
+  const later = triage.set("alert-touch", { status: "investigating" }, "jo").record;
+  assert.equal(later.firstTouchedAt, first);
+  assert.ok(Date.parse(later.updatedAt) >= Date.parse(first), "updatedAt tracks the latest edit");
 });
 
 test("a first write defaults to the 'new' status", () => {
@@ -100,7 +157,7 @@ test("counts report every status, including the empty ones", () => {
 });
 
 test("state survives a restart", async () => {
-  triage.set("durable", { status: "closed", note: "persisted" }, "jo");
+  triage.set("durable", { status: "closed", note: "persisted", disposition: "benign" }, "jo");
   // A fresh module instance reading the same file == a restarted BFF.
   const reloaded = await import(`../server/triage.js?restart=${Date.now()}`);
   const rec = reloaded.get("durable");

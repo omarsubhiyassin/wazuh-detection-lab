@@ -54,6 +54,23 @@ export function getMany(ids) {
 export const AI_VERDICTS = ["agree", "disagree"];
 
 /**
+ * How an investigation actually ended. Required to close, because a closure
+ * with no stated outcome is the thing that makes efficacy metrics useless.
+ *
+ * The false-positive / benign split is the one that matters: "false-positive"
+ * means the RULE was wrong (it fired on something it does not describe) and is
+ * a defect to tune; "benign" means the rule was right but the activity was
+ * authorized. Collapsing the two would blame the ruleset for normal admin work
+ * and hide the detections that genuinely need fixing.
+ */
+export const DISPOSITIONS = ["true-positive", "false-positive", "benign"];
+
+/** Every record, as { id: record }. Read-only view for the metrics layer. */
+export function all() {
+  return { ...state };
+}
+
+/**
  * Set/patch triage state for an alert. Returns { ok, record } or { ok:false,
  * error }. `by` is the acting username. `assignee`/`note`/`aiVerdict` optional.
  *
@@ -65,7 +82,7 @@ export const AI_VERDICTS = ["agree", "disagree"];
  * this. "A person must confirm and close" is therefore a server-side
  * constraint, not a UI convention.
  */
-export function set(id, { status, assignee, note, aiVerdict }, by) {
+export function set(id, { status, assignee, note, aiVerdict, disposition, context }, by) {
   if (!id) return { ok: false, error: "missing alert id" };
   if (typeof by !== "string" || !by.trim()) {
     return { ok: false, error: "triage requires an authenticated human actor" };
@@ -76,16 +93,39 @@ export function set(id, { status, assignee, note, aiVerdict }, by) {
   if (aiVerdict !== undefined && aiVerdict !== null && !AI_VERDICTS.includes(aiVerdict)) {
     return { ok: false, error: `aiVerdict must be one of ${AI_VERDICTS.join(", ")}` };
   }
+  if (disposition !== undefined && disposition !== null && !DISPOSITIONS.includes(disposition)) {
+    return { ok: false, error: `disposition must be one of ${DISPOSITIONS.join(", ")}` };
+  }
+
   const prev = state[id] || {};
+  const nextStatus = status ?? prev.status ?? "new";
+  const nextDisposition = disposition !== undefined ? disposition : (prev.disposition ?? null);
+  // Closing without stating the outcome is rejected server-side. Otherwise the
+  // efficacy numbers below silently become "of the closures that happened to be
+  // labelled", which is not a measurement.
+  if (nextStatus === "closed" && !nextDisposition) {
+    return { ok: false, error: `closing requires a disposition: ${DISPOSITIONS.join(", ")}` };
+  }
+
+  const now = new Date().toISOString();
   const record = {
-    status: status ?? prev.status ?? "new",
+    status: nextStatus,
     assignee: assignee !== undefined ? assignee : (prev.assignee ?? null),
     note: note !== undefined ? note : (prev.note ?? ""),
-    // Did the human agree with the AI's flag? Recorded for the audit trail and
-    // so false-positive rates per rule can be measured later.
+    // Did the human agree with the AI's flag? Recorded so the scorer's
+    // precision can be measured against analyst judgement.
     aiVerdict: aiVerdict !== undefined ? aiVerdict : (prev.aiVerdict ?? null),
+    disposition: nextDisposition,
+    // Denormalized alert facts, looked up server-side at first write. Kept here
+    // so metrics survive the alert itself: ISM deletes old indices on the
+    // retention schedule, and a record that only holds an index _id becomes
+    // unattributable the moment its index is gone.
+    context: context ?? prev.context ?? null,
     updatedBy: by,
-    updatedAt: new Date().toISOString(),
+    updatedAt: now,
+    // When a human first picked this up. Never moves, so "time to first touch"
+    // stays measurable no matter how many times the record is edited after.
+    firstTouchedAt: prev.firstTouchedAt ?? now,
   };
   state[id] = record;
   persist();

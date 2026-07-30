@@ -39,13 +39,48 @@ npm run dev
 npm run build && npm start   # open http://localhost:8787
 ```
 
+## Detection efficacy metrics
+
+Closes the loop the rest of the app opens: rules produce alerts → analysts triage them →
+the aggregate says **which of our own detections are noisy**. Open it from *efficacy* in
+the header (`GET /api/metrics`, any signed-in role).
+
+Closing an alert requires stating an **outcome**, enforced server-side:
+
+| Disposition | Meaning | Counts against the rule? |
+|---|---|---|
+| `true-positive` | real malicious or unauthorized activity | no — the rule worked |
+| `false-positive` | the rule fired on something it does not describe | **yes — a detection defect** |
+| `benign` | the rule was right, the activity was authorized | no |
+
+That middle distinction is the whole point. Collapsing "false positive" into "benign true
+positive" would blame the ruleset for normal admin work and hide the detections that
+genuinely need tuning. Without a *required* disposition the numbers silently degrade into
+"of the closures somebody happened to label", which is not a measurement — so
+`triage.set()` rejects a close without one.
+
+Reported per rule: triaged/closed volume, false-positive rate, benign rate, precision,
+median time to close, and the **sample size**, because 100% over 2 closures is not the
+same claim as 40% over 200. Fleet-wide: median time to first touch and to close (medians,
+not means — one stale alert should not move the number), outcome mix, closures per
+analyst, and how often analysts **agreed with the AI scorer** — which is how the weights
+in `analysis.js` get validated or indicted.
+
+Rule attribution is looked up from the **indexer** at triage time and denormalized onto
+the record, not taken from the request body: the client could claim any rule, and a record
+holding only an index `_id` becomes unattributable the moment ISM deletes that index.
+
+**Honest limits, stated in the UI too:** these are *analyst-reported outcomes, not ground
+truth*, they only cover alerts someone actually triaged, and a rate stays `null` (shown
+`—`) until there is something to divide by rather than displaying a confident `0%`.
+
 ## Tests
 
 ```bash
 npm test        # node:test, no test framework dependency
 ```
 
-41 tests over `tests/`, run in CI on every dashboard change
+61 tests over `tests/`, run in CI on every dashboard change
 ([dashboard-ci.yml](../.github/workflows/dashboard-ci.yml)). They exist to protect
 **security invariants that are otherwise only claims in comments**:
 
@@ -89,6 +124,7 @@ each make the suite fail. A test that cannot fail protects nothing.
 | `POST /api/alerts/:id/triage` | set status/assignee/note/AI verdict — **analyst+** |
 | `POST /api/analysis/run` | score the current filter window, store advisory findings — **analyst+** |
 | `GET /api/analysis` | current findings + the scoring configuration |
+| `GET /api/metrics` | detection efficacy: per-rule FP rate, timings, scorer agreement |
 | `GET /api/audit` | recent audit events — **admin only** |
 
 All endpoints except `/api/auth/*` require a signed-in session (401 otherwise).

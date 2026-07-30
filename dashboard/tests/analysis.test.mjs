@@ -137,7 +137,9 @@ test("a re-run cannot reopen or overwrite a human's decision", async () => {
   const a = alert({ id: "decided", rule: "100400", level: 12, tactic: "Credential Access" });
   await analysis.run([a], "runner");
 
-  const closed = triage.set("decided", { status: "closed", note: "benign", aiVerdict: "disagree" }, "analyst-jo");
+  const closed = triage.set("decided",
+    { status: "closed", note: "benign", aiVerdict: "disagree", disposition: "false-positive" },
+    "analyst-jo");
   assert.ok(closed.ok);
 
   await analysis.run([a], "runner");           // the AI looks at it again...

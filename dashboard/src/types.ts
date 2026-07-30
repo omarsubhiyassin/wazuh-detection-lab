@@ -25,14 +25,33 @@ export type TriageStatus = "new" | "acknowledged" | "investigating" | "closed";
 
 export type AiVerdict = "agree" | "disagree";
 
+/**
+ * How an investigation ended. "false-positive" blames the RULE (it fired on
+ * something it does not describe); "benign" means the rule was right and the
+ * activity was authorized. Required to close.
+ */
+export type Disposition = "true-positive" | "false-positive" | "benign";
+
+/** Durable alert facts denormalized onto the triage record for metrics. */
+export interface AlertContext {
+  ruleId: string | null;
+  ruleLevel: number | null;
+  description: string | null;
+  host: string | null;
+  alertTs: string | null;
+}
+
 export interface TriageState {
   status: TriageStatus;
   assignee: string | null;
   note: string;
   /** The human's judgement of the AI finding (null = not yet judged). */
   aiVerdict: AiVerdict | null;
+  disposition: Disposition | null;
+  context: AlertContext | null;
   updatedBy: string;
   updatedAt: string;
+  firstTouchedAt: string;
 }
 
 /** Advisory AI output. Never carries workflow state — see server/analysis.js. */
@@ -115,6 +134,51 @@ export interface Stats {
   overTime: { t: number; count: number }[];
   byAgent: AgentStat[];
   triageCounts: Record<TriageStatus, number>;
+}
+
+// --- Detection efficacy metrics ---------------------------------------------
+
+export interface RuleEfficacy {
+  ruleId: string;
+  ruleLevel: number | null;
+  description: string | null;
+  triaged: number;
+  closed: number;
+  truePositive: number;
+  falsePositive: number;
+  benign: number;
+  agreed: number;
+  disagreed: number;
+  /** null until something has been closed — never a misleading 0%. */
+  falsePositiveRate: number | null;
+  benignRate: number | null;
+  precision: number | null;
+  medianTimeToCloseMs: number | null;
+}
+
+export interface Metrics {
+  totals: {
+    triaged: number;
+    closed: number;
+    open: number;
+    /** Records with no rule attribution (written before context was stamped). */
+    unattributed: number;
+    dispositions: Record<Disposition, number>;
+  };
+  scorer: {
+    judged: number;
+    agreed: number;
+    disagreed: number;
+    agreementRate: number | null;
+  };
+  timing: {
+    medianTimeToFirstTouchMs: number | null;
+    medianTimeToCloseMs: number | null;
+    sampled: number;
+  };
+  rules: RuleEfficacy[];
+  analysts: { user: string; closed: number }[];
+  generatedAt: string;
 }
 
 export interface Filters {

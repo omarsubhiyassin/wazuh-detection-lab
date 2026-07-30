@@ -6,6 +6,7 @@ import { AttackMatrix } from "./components/AttackMatrix";
 import { AlertTable } from "./components/AlertTable";
 import { AlertDrawer } from "./components/AlertDrawer";
 import { AuditPanel } from "./components/AuditPanel";
+import { MetricsPanel } from "./components/MetricsPanel";
 import { FleetRail } from "./components/FleetRail";
 import { Sidebar } from "./components/Sidebar";
 import { Login } from "./components/Login";
@@ -42,6 +43,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Alert | null>(null);
   const [showAudit, setShowAudit] = useState(false);
+  const [showMetrics, setShowMetrics] = useState(false);
   // Client-side filter over the loaded alert page (triage state lives in the
   // BFF store, not the indexer, so it can't be part of the indexer query).
   const [triageFilter, setTriageFilter] = useState<TriageStatus | null>(null);
@@ -158,6 +160,7 @@ export function App() {
             onChange={(e) => set({ search: e.target.value || undefined })} />
           <span className="session muted">{session.user}</span>
           <span className={`role-badge role-${session.role}`}>{session.role}</span>
+          <button className="linkish" onClick={() => setShowMetrics(true)}>efficacy</button>
           {session.role === "admin" && (
             <button className="linkish" onClick={() => setShowAudit(true)}>audit log</button>
           )}
@@ -232,6 +235,7 @@ export function App() {
       <AlertDrawer alert={selected} role={session.role} onClose={() => setSelected(null)}
         onTriaged={applyTriage} onExpired={() => setSession(null)} />
 
+      {showMetrics && <MetricsPanel onClose={() => setShowMetrics(false)} />}
       {showAudit && <AuditPanel onClose={() => setShowAudit(false)} />}
     </div>
   );

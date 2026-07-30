@@ -1,6 +1,6 @@
 import type {
-  Alert, AiFinding, AiVerdict, AnalysisConfig, AnalysisRun,
-  AuditEvent, Filters, Session, Stats, TriageState, TriageStatus,
+  Alert, AiFinding, AiVerdict, AnalysisConfig, AnalysisRun, Disposition,
+  AuditEvent, Filters, Metrics, Session, Stats, TriageState, TriageStatus,
 } from "./types";
 
 /** Fetch error carrying the HTTP status so callers can react to 401s. */
@@ -56,7 +56,10 @@ export const logout = () =>
 
 export async function setTriage(
   id: string,
-  patch: { status?: TriageStatus; assignee?: string | null; note?: string; aiVerdict?: AiVerdict | null },
+  patch: {
+    status?: TriageStatus; assignee?: string | null; note?: string;
+    aiVerdict?: AiVerdict | null; disposition?: Disposition | null;
+  },
 ): Promise<{ id: string; triage: TriageState }> {
   const res = await fetch(`/api/alerts/${encodeURIComponent(id)}/triage`, {
     method: "POST",
@@ -70,6 +73,8 @@ export async function setTriage(
 
 export const getAudit = (limit = 200) =>
   getJSON<{ events: AuditEvent[] }>(`/api/audit?limit=${limit}`);
+
+export const getMetrics = () => getJSON<Metrics>(`/api/metrics`);
 
 // --- AI analysis (advisory) ----------------------------------------------
 

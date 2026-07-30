@@ -303,6 +303,36 @@ tr.row-flagged td:first-child { box-shadow: inset 3px 0 0 var(--med); }
 .verdict-btn:hover { color: var(--text); border-color: var(--muted); }
 .verdict-btn.active { background: rgba(31,111,235,.16); border-color: var(--tag); color: #79c0ff; }
 
+/* ===== outcome (disposition) + efficacy metrics ============================ */
+.disp { margin-top: 10px; }
+.disp-btns { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+.disp-btn { flex: 1 1 140px; text-align: left; background: none; border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 9px; cursor: pointer; color: var(--muted); }
+.disp-btn:hover { color: var(--text); border-color: var(--muted); }
+.disp-label { display: block; font-size: 12px; color: var(--text); }
+.disp-hint { display: block; font-size: 10px; line-height: 1.35; margin-top: 2px; }
+.disp-btn.active.disp-true-positive { background: rgba(248,81,73,.14); border-color: var(--crit); }
+.disp-btn.active.disp-false-positive { background: rgba(210,153,34,.14); border-color: var(--med); }
+.disp-btn.active.disp-benign { background: rgba(63,185,80,.14); border-color: var(--accent); }
+
+.disp-summary { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; }
+.disp-chip { font-size: 12px; padding: 2px 10px; border-radius: 10px; border: 1px solid var(--border); }
+.disp-chip.disp-true-positive { background: rgba(248,81,73,.14); border-color: var(--crit); color: #ff9a94; }
+.disp-chip.disp-false-positive { background: rgba(210,153,34,.14); border-color: var(--med); color: #e3b341; }
+.disp-chip.disp-benign { background: rgba(63,185,80,.14); border-color: var(--accent); color: #56d364; }
+
+.drawer-wide { max-width: 1100px; }
+.metric-tiles { margin-bottom: 4px; }
+.rule-desc { font-size: 10px; max-width: 260px; white-space: normal; }
+.fp-bad { color: #e3b341; font-weight: 700; }
+.conf { font-size: 11px; color: var(--muted); }
+.conf-low { color: var(--med); }
+.conf-none { color: var(--low); font-style: italic; }
+.analyst-list { list-style: none; margin: 6px 0 0; padding: 0; max-width: 320px; }
+.analyst-list li { display: flex; justify-content: space-between; padding: 3px 0;
+  border-bottom: 1px solid var(--border); font-size: 13px; }
+.metric-caveat { font-size: 11px; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 10px; }
+
 .rail-run { width: 100%; margin-top: 8px; background: var(--panel-2); border: 1px solid var(--border);
   color: var(--text); border-radius: 6px; padding: 6px; font-size: 12px; cursor: pointer; }
 .rail-run:hover:not(:disabled) { border-color: var(--muted); }

@@ -1,9 +1,19 @@
 import { useEffect, useState } from "react";
-import type { Alert, AiVerdict, Role, TriageState, TriageStatus } from "../types";
+import type { Alert, AiVerdict, Disposition, Role, TriageState, TriageStatus } from "../types";
 import { setTriage, HttpError } from "../api";
 import { reviewOf } from "../review";
 
 const STATUSES: TriageStatus[] = ["new", "acknowledged", "investigating", "closed"];
+
+// The wording matters: an analyst has to be able to tell "the rule was wrong"
+// apart from "the rule was right, the activity was allowed". Conflating them
+// blames the ruleset for normal admin work and hides the detections that
+// actually need tuning.
+const DISPOSITIONS: { value: Disposition; label: string; hint: string }[] = [
+  { value: "true-positive", label: "True positive", hint: "real malicious or unauthorized activity" },
+  { value: "false-positive", label: "False positive", hint: "the rule fired on something it does not describe — a detection defect" },
+  { value: "benign", label: "Benign", hint: "the rule was right, but the activity was authorized" },
+];
 
 interface Props {
   alert: Alert | null;
@@ -20,6 +30,7 @@ function Triage({ alert, role, onTriaged, onExpired }:
   const [assignee, setAssignee] = useState(t?.assignee ?? "");
   const [note, setNote] = useState(t?.note ?? "");
   const [verdict, setVerdict] = useState<AiVerdict | null>(t?.aiVerdict ?? null);
+  const [disposition, setDisposition] = useState<Disposition | null>(t?.disposition ?? null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -29,18 +40,20 @@ function Triage({ alert, role, onTriaged, onExpired }:
     setAssignee(alert.triage?.assignee ?? "");
     setNote(alert.triage?.note ?? "");
     setVerdict(alert.triage?.aiVerdict ?? null);
+    setDisposition(alert.triage?.disposition ?? null);
     setErr(null);
   }, [alert.id]);
 
   const readOnly = role === "viewer";
   // Closing is the point of no return in the workflow, so require the analyst
-  // to actually write something. The server enforces "a human did this"; this
-  // enforces "a human thought about it".
+  // to actually write something and to state the outcome. The server enforces
+  // both; this just says so before the round trip.
   const needsNote = status === "closed" && !note.trim();
+  const needsDisposition = status === "closed" && !disposition;
 
   const save = () => {
     setSaving(true); setErr(null);
-    setTriage(alert.id, { status, assignee: assignee || null, note, aiVerdict: verdict })
+    setTriage(alert.id, { status, assignee: assignee || null, note, aiVerdict: verdict, disposition })
       .then((r) => onTriaged(alert.id, r.triage))
       .catch((e) => {
         if (e instanceof HttpError && e.status === 401) onExpired();
@@ -81,6 +94,21 @@ function Triage({ alert, role, onTriaged, onExpired }:
               </div>
             </div>
           )}
+          <div className="disp">
+            <span className="verdict-q">
+              Outcome {status === "closed" && <span className="req">required to close</span>}
+            </span>
+            <div className="disp-btns">
+              {DISPOSITIONS.map((d) => (
+                <button key={d.value} type="button" title={d.hint}
+                  className={`disp-btn disp-${d.value}${disposition === d.value ? " active" : ""}`}
+                  onClick={() => setDisposition(disposition === d.value ? null : d.value)}>
+                  <span className="disp-label">{d.label}</span>
+                  <span className="disp-hint">{d.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
           <label className="triage-note">
             Note {status === "closed" && <span className="req">required to close</span>}
             <textarea value={note} rows={2} onChange={(e) => setNote(e.target.value)}
@@ -89,11 +117,15 @@ function Triage({ alert, role, onTriaged, onExpired }:
                 : "Optional context for the next analyst"} />
           </label>
           {err && <div className="error">{err}</div>}
-          <button className="triage-save" disabled={saving || needsNote} onClick={save}>
+          <button className="triage-save" disabled={saving || needsNote || needsDisposition} onClick={save}>
             {saving ? "Saving…" : status === "closed" ? "Confirm and close" : "Save triage"}
           </button>
-          {needsNote && (
-            <p className="muted t-meta">Add a note explaining your conclusion before closing.</p>
+          {(needsNote || needsDisposition) && (
+            <p className="muted t-meta">
+              {needsDisposition ? "Pick an outcome" : "Add a note"}
+              {needsNote && needsDisposition ? " and write a note" : ""} before closing —
+              it is what makes the detection metrics mean anything.
+            </p>
           )}
         </>
       )}
