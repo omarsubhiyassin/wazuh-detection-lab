@@ -115,7 +115,7 @@ function AiPanel({ alert }: { alert: Alert }) {
     <div className="ai-box">
       <div className="ai-head">
         <span className="ai-pri">P{ai.priority}</span>
-        <h4>Flagged for review</h4>
+        <h4>Flagged for review{ai.occurrences > 1 && ` — ${ai.occurrences} occurrences`}</h4>
         <span className="muted">score {ai.score}</span>
       </div>
       <ul className="ai-reasons">

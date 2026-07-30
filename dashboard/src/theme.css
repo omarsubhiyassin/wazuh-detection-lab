@@ -280,6 +280,7 @@ td.desc { max-width: 420px; }
 .ai-pri { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px;
   border-radius: 5px; background: rgba(210,153,34,.16); border: 1px solid var(--med);
   color: #e3b341; font-family: ui-monospace, "Cascadia Code", Menlo, monospace; }
+.ai-pri em { font-style: normal; opacity: .7; margin-left: 2px; }
 tr.row-flagged td:first-child { box-shadow: inset 3px 0 0 var(--med); }
 
 .ai-box { border: 1px solid rgba(210,153,34,.4); border-radius: 8px;

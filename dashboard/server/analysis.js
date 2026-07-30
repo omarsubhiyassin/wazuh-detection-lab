@@ -157,15 +157,37 @@ export function analyze(alerts) {
     return { alert: a, score, reasons };
   });
 
-  const flagged = scored
+  const ranked = scored
     .filter((x) => x.score >= FLAG_AT)
     .sort((a, b) =>
       b.score - a.score ||
       String(b.alert.source?.timestamp ?? "").localeCompare(String(a.alert.source?.timestamp ?? "")));
 
+  // Collapse repeats of the same rule on the same host into ONE queue item.
+  // Without this, a noisy rule that fires 16 times fills the top 16 priority
+  // slots with copies of a single decision. An analyst reviews "this fired 16
+  // times on AMIGO" once; the representative is the highest-scoring (then most
+  // recent) instance, and it carries the occurrence count.
+  const seen = new Map();
+  for (const x of ranked) {
+    const k = `${x.alert.source?.rule?.id}|${x.alert.source?.agent?.name}`;
+    const rep = seen.get(k);
+    if (rep) { rep.occurrences += 1; continue; }
+    x.occurrences = 1;
+    seen.set(k, x);
+  }
+  const flagged = [...seen.values()];
+  for (const x of flagged) {
+    if (x.occurrences > 1) {
+      x.reasons = x.reasons.filter((r) => !r.startsWith("repeated "));
+      x.reasons.push(`fired ${x.occurrences}x on ${x.alert.source?.agent?.name} in this window — grouped into one review item`);
+    }
+  }
+
   return {
     considered: eligible.length,
-    flagged,           // ranked; caller assigns priority = index + 1
+    matched: ranked.length,   // alerts over the threshold, before grouping
+    flagged,                  // ranked queue items; caller assigns priority = index + 1
     minLevel: MIN_LEVEL,
     threshold: FLAG_AT,
   };
@@ -260,6 +282,7 @@ export async function run(alerts, by) {
       flagged: true,
       score: item.score,
       priority: i + 1,          // 1 = investigate first
+      occurrences: item.occurrences ?? 1,
       reasons: item.reasons,
       summary: summaries[item.alert.id] ?? null,
       summaryModel: summaries[item.alert.id] ? LLM_MODEL : null,
@@ -271,6 +294,7 @@ export async function run(alerts, by) {
 
   return {
     considered: result.considered,
+    matched: result.matched,
     flagged: result.flagged.length,
     minLevel: result.minLevel,
     threshold: result.threshold,

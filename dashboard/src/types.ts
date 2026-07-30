@@ -41,6 +41,8 @@ export interface AiFinding {
   score: number;
   /** 1 = investigate first. */
   priority: number;
+  /** How many alerts this one queue item stands for (same rule + host). */
+  occurrences: number;
   /** Deterministic, auditable factors behind the score. */
   reasons: string[];
   /** Optional LLM prose. Unverified — shown labelled as such. */
@@ -59,6 +61,8 @@ export interface AnalysisConfig {
 
 export interface AnalysisRun {
   considered: number;
+  /** Alerts over the threshold before same-rule/same-host grouping. */
+  matched: number;
   flagged: number;
   minLevel: number;
   threshold: number;

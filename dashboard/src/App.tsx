@@ -86,7 +86,9 @@ export function App() {
     setRunning(true); setRunNote(null);
     runAnalysis(filters)
       .then((r) => {
-        setRunNote(`Flagged ${r.flagged} of ${r.considered} alerts at level ${r.minLevel}+.`);
+        setRunNote(r.matched > r.flagged
+          ? `${r.matched} of ${r.considered} alerts over threshold, grouped into ${r.flagged} review items.`
+          : `Flagged ${r.flagged} of ${r.considered} alerts at level ${r.minLevel}+.`);
         setReload((n) => n + 1);
       })
       .catch((e) => {

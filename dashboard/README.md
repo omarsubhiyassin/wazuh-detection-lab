@@ -89,6 +89,10 @@ weighted score over signals already present in the alert:
 Same input, same output; every contribution is shown to the analyst as a plain sentence
 in the drawer. No API key, no cost, no data leaving the host.
 
+Flagged alerts are then **grouped by rule + host**, so a rule that fires 16 times is one
+queue item (`P1 ×16`) rather than 16 copies of the same decision filling the top of the
+list. The representative is the highest-scoring, most recent instance.
+
 **Optional LLM rationale.** With `AI_LLM_ENABLED=true`, Claude drafts a 1–2 sentence
 rationale on top of the score. It is **off by default**, it never changes the score, the
 ranking, or any workflow state, and it degrades to "no prose" on failure or refusal.

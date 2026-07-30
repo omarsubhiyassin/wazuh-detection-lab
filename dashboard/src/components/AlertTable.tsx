@@ -58,7 +58,7 @@ export function AlertTable({ alerts, total, loading, onSelect, note }: Props) {
                   <td className="nowrap">
                     {a.ai?.flagged
                       ? <span className="ai-pri" title={`score ${a.ai.score} — ${a.ai.reasons[0] ?? ""}`}>
-                          P{a.ai.priority}
+                          P{a.ai.priority}{a.ai.occurrences > 1 && <em>×{a.ai.occurrences}</em>}
                         </span>
                       : <span className="muted">—</span>}
                   </td>
