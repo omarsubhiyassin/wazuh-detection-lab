@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { installAuth, requireRole } from "./auth.js";
 import * as audit from "./audit.js";
 import * as triage from "./triage.js";
+import * as analysis from "./analysis.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -172,10 +173,17 @@ app.get("/api/alerts", async (req, res) => {
     const r = await indexer(`/${encodeURIComponent(ALERTS_INDEX)}/_search`, "POST", body);
     if (r.status >= 400) return res.status(502).json({ error: "indexer", status: r.status, detail: r.json });
     const hits = r.json.hits?.hits || [];
-    const triageById = triage.getMany(hits.map((h) => h._id));
+    const ids = hits.map((h) => h._id);
+    const triageById = triage.getMany(ids);
+    const aiById = analysis.getMany(ids);
     res.json({
       total: r.json.hits?.total?.value ?? 0,
-      alerts: hits.map((h) => ({ id: h._id, source: h._source, triage: triageById[h._id] ?? null })),
+      alerts: hits.map((h) => ({
+        id: h._id,
+        source: h._source,
+        triage: triageById[h._id] ?? null,
+        ai: aiById[h._id] ?? null,
+      })),
     });
   } catch (e) {
     res.status(502).json({ error: String(e) });
@@ -183,13 +191,50 @@ app.get("/api/alerts", async (req, res) => {
 });
 
 // --- Triage (analyst+): set/read an alert's workflow state -------------------
+// The ONLY path that advances or closes an investigation. requireRole gates it
+// to an authenticated analyst+, and the acting username is taken from the
+// session — never from the request body — so a caller cannot act as someone
+// else. The AI layer has no route here by design.
 app.post("/api/alerts/:id/triage", requireRole("analyst"), (req, res) => {
-  const { status, assignee, note } = req.body || {};
-  const result = triage.set(req.params.id, { status, assignee, note }, req.session.user);
+  const { status, assignee, note, aiVerdict } = req.body || {};
+  const result = triage.set(req.params.id, { status, assignee, note, aiVerdict }, req.session.user);
   if (!result.ok) return res.status(400).json({ error: result.error });
   audit.record({ action: "triage", user: req.session.user, alertId: req.params.id,
-    status: result.record.status, assignee: result.record.assignee });
+    status: result.record.status, assignee: result.record.assignee,
+    aiVerdict: result.record.aiVerdict });
   res.json({ id: req.params.id, triage: result.record });
+});
+
+// --- AI analysis (advisory only) ---------------------------------------------
+// Runs the scoring pass over the current filter window and stores advisory
+// findings. It cannot mark anything reviewed, resolved, or closed — those live
+// in the triage store above and require a human.
+app.post("/api/analysis/run", requireRole("analyst"), async (req, res) => {
+  const size = Math.min(Number(req.body?.size || 200), 500);
+  const body = {
+    size,
+    query: buildQuery(req.body?.filters || {}),
+    sort: [{ timestamp: "desc" }],
+    _source: ["timestamp", "rule.id", "rule.level", "rule.description", "rule.groups",
+      "rule.mitre", "agent.name", "agent.ip", "location", "full_log", "data", "decoder.name"],
+  };
+  try {
+    const r = await indexer(`/${encodeURIComponent(ALERTS_INDEX)}/_search`, "POST", body);
+    if (r.status >= 400) return res.status(502).json({ error: "indexer", status: r.status });
+    const alerts = (r.json.hits?.hits || []).map((h) => ({ id: h._id, source: h._source }));
+    const summary = await analysis.run(alerts, req.session.user);
+    audit.record({ action: "analysis_run", user: req.session.user,
+      considered: summary.considered, flagged: summary.flagged, llm: summary.llm });
+    res.json(summary);
+  } catch (e) {
+    res.status(502).json({ error: String(e) });
+  }
+});
+
+// Current advisory findings + the scoring configuration (so the ranking is
+// inspectable rather than a black box).
+app.get("/api/analysis", (_req, res) => {
+  res.json({ findings: analysis.all(), config: analysis.config() });
 });
 
 // --- Audit log (admin only) ---------------------------------------------------

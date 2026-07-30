@@ -257,6 +257,55 @@ td.desc { max-width: 420px; }
   border-radius: 6px; padding: 7px 14px; cursor: pointer; }
 .triage-save:disabled { opacity: .5; cursor: default; }
 .t-meta { font-size: 11px; margin: 8px 0 0; }
+.req { font-size: 10px; color: var(--med); text-transform: uppercase; letter-spacing: .04em; }
+
+/* ===== AI advisory layer =====================================================
+   Colour carries the meaning: amber = a machine suggested it and nobody has
+   looked yet; green = a person confirmed and closed it. The two must never
+   read as the same state. */
+.r-badge { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px;
+  border: 1px solid var(--border); white-space: nowrap; }
+.r-ai-awaiting { background: rgba(210,153,34,.15); border-color: var(--med); color: #e3b341; }
+.r-in-review { background: rgba(31,111,235,.15); border-color: var(--tag); color: #79c0ff; }
+.r-closed { background: rgba(63,185,80,.15); border-color: var(--accent); color: #56d364; }
+.r-untriaged { border-color: transparent; color: var(--muted); }
+
+.r-banner { font-size: 12px; padding: 7px 10px; border-radius: 7px; margin: 0 0 12px;
+  border: 1px solid var(--border); color: var(--muted); }
+.r-banner.r-ai-awaiting { background: rgba(210,153,34,.10); border-color: rgba(210,153,34,.5); color: #e3b341; }
+.r-banner.r-in-review { background: rgba(31,111,235,.10); border-color: rgba(31,111,235,.5); color: #79c0ff; }
+.r-banner.r-closed { background: rgba(63,185,80,.10); border-color: rgba(63,185,80,.5); color: #56d364; }
+.r-banner.r-untriaged { display: none; }
+
+.ai-pri { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px;
+  border-radius: 5px; background: rgba(210,153,34,.16); border: 1px solid var(--med);
+  color: #e3b341; font-family: ui-monospace, "Cascadia Code", Menlo, monospace; }
+tr.row-flagged td:first-child { box-shadow: inset 3px 0 0 var(--med); }
+
+.ai-box { border: 1px solid rgba(210,153,34,.4); border-radius: 8px;
+  background: rgba(210,153,34,.06); padding: 12px; margin: 14px 0; }
+.ai-head { display: flex; align-items: center; gap: 9px; }
+.ai-head h4 { margin: 0; flex: 1; font-size: 13px; }
+.ai-reasons { margin: 10px 0 0; padding-left: 18px; font-size: 12px; }
+.ai-reasons li { margin-bottom: 3px; }
+.ai-summary { margin-top: 10px; border-left: 2px solid var(--border); padding-left: 10px; }
+.ai-summary p { margin: 4px 0 0; font-size: 12px; }
+.ai-summary-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--med); font-weight: 600; }
+.ai-disclaimer { margin: 10px 0 0; font-size: 10px; line-height: 1.5; color: var(--muted); }
+
+.verdict { margin-top: 10px; }
+.verdict-q { font-size: 12px; color: var(--muted); }
+.verdict-btns { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+.verdict-btn { background: none; border: 1px solid var(--border); color: var(--muted);
+  border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+.verdict-btn:hover { color: var(--text); border-color: var(--muted); }
+.verdict-btn.active { background: rgba(31,111,235,.16); border-color: var(--tag); color: #79c0ff; }
+
+.rail-run { width: 100%; margin-top: 8px; background: var(--panel-2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; padding: 6px; font-size: 12px; cursor: pointer; }
+.rail-run:hover:not(:disabled) { border-color: var(--muted); }
+.rail-run:disabled { opacity: .5; cursor: default; }
 
 table.audit td { font-size: 12px; }
 .audit-login { background: rgba(63,185,80,.15); border-color: var(--accent); color: #56d364; }

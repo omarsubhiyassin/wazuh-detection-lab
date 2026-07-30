@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import type { Alert, Role, TriageState, TriageStatus } from "../types";
+import type { Alert, AiVerdict, Role, TriageState, TriageStatus } from "../types";
 import { setTriage, HttpError } from "../api";
+import { reviewOf } from "../review";
 
 const STATUSES: TriageStatus[] = ["new", "acknowledged", "investigating", "closed"];
 
@@ -18,6 +19,7 @@ function Triage({ alert, role, onTriaged, onExpired }:
   const [status, setStatus] = useState<TriageStatus>(t?.status ?? "new");
   const [assignee, setAssignee] = useState(t?.assignee ?? "");
   const [note, setNote] = useState(t?.note ?? "");
+  const [verdict, setVerdict] = useState<AiVerdict | null>(t?.aiVerdict ?? null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -26,14 +28,19 @@ function Triage({ alert, role, onTriaged, onExpired }:
     setStatus(alert.triage?.status ?? "new");
     setAssignee(alert.triage?.assignee ?? "");
     setNote(alert.triage?.note ?? "");
+    setVerdict(alert.triage?.aiVerdict ?? null);
     setErr(null);
   }, [alert.id]);
 
   const readOnly = role === "viewer";
+  // Closing is the point of no return in the workflow, so require the analyst
+  // to actually write something. The server enforces "a human did this"; this
+  // enforces "a human thought about it".
+  const needsNote = status === "closed" && !note.trim();
 
   const save = () => {
     setSaving(true); setErr(null);
-    setTriage(alert.id, { status, assignee: assignee || null, note })
+    setTriage(alert.id, { status, assignee: assignee || null, note, aiVerdict: verdict })
       .then((r) => onTriaged(alert.id, r.triage))
       .catch((e) => {
         if (e instanceof HttpError && e.status === 401) onExpired();
@@ -60,16 +67,73 @@ function Triage({ alert, role, onTriaged, onExpired }:
                 onChange={(e) => setAssignee(e.target.value)} />
             </label>
           </div>
-          <label className="triage-note">Note
-            <textarea value={note} rows={2} onChange={(e) => setNote(e.target.value)} />
+          {alert.ai?.flagged && (
+            <div className="verdict">
+              <span className="verdict-q">Was the AI right to flag this?</span>
+              <div className="verdict-btns">
+                {(["agree", "disagree"] as AiVerdict[]).map((v) => (
+                  <button key={v} type="button"
+                    className={`verdict-btn${verdict === v ? " active" : ""}`}
+                    onClick={() => setVerdict(verdict === v ? null : v)}>
+                    {v === "agree" ? "Agree — worth investigating" : "Disagree — false positive"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <label className="triage-note">
+            Note {status === "closed" && <span className="req">required to close</span>}
+            <textarea value={note} rows={2} onChange={(e) => setNote(e.target.value)}
+              placeholder={status === "closed"
+                ? "What did you find? This is your conclusion, not the AI's."
+                : "Optional context for the next analyst"} />
           </label>
           {err && <div className="error">{err}</div>}
-          <button className="triage-save" disabled={saving} onClick={save}>
-            {saving ? "Saving…" : "Save triage"}
+          <button className="triage-save" disabled={saving || needsNote} onClick={save}>
+            {saving ? "Saving…" : status === "closed" ? "Confirm and close" : "Save triage"}
           </button>
+          {needsNote && (
+            <p className="muted t-meta">Add a note explaining your conclusion before closing.</p>
+          )}
         </>
       )}
       {t && <p className="muted t-meta">last updated by {t.updatedBy} · {new Date(t.updatedAt).toLocaleString()}</p>}
+    </div>
+  );
+}
+
+/**
+ * The AI's advisory output. Deliberately framed as a suggestion: the
+ * deterministic factors are listed first and in full, because they are what an
+ * analyst can actually audit. Model prose, when enabled, is shown last and
+ * labelled unverified — it is generated from attacker-controllable log text.
+ */
+function AiPanel({ alert }: { alert: Alert }) {
+  const ai = alert.ai;
+  if (!ai?.flagged) return null;
+  return (
+    <div className="ai-box">
+      <div className="ai-head">
+        <span className="ai-pri">P{ai.priority}</span>
+        <h4>Flagged for review</h4>
+        <span className="muted">score {ai.score}</span>
+      </div>
+      <ul className="ai-reasons">
+        {ai.reasons.map((r) => <li key={r}>{r}</li>)}
+      </ul>
+      {ai.summary && (
+        <div className="ai-summary">
+          <div className="ai-summary-label">
+            Model summary · unverified · {ai.summaryModel}
+          </div>
+          <p>{ai.summary}</p>
+        </div>
+      )}
+      <p className="ai-disclaimer">
+        Ranking is a deterministic score over the factors above — not a model
+        judgement. Nothing here reviews, resolves, or closes the alert; only an
+        analyst can do that below.
+      </p>
     </div>
   );
 }
@@ -79,6 +143,7 @@ export function AlertDrawer({ alert, role, onClose, onTriaged, onExpired }: Prop
   const s = alert.source;
   const r = s.rule;
   const mitre = r.mitre;
+  const rev = reviewOf(alert);
 
   return (
     <div className="drawer-scrim" onClick={onClose}>
@@ -87,6 +152,8 @@ export function AlertDrawer({ alert, role, onClose, onTriaged, onExpired }: Prop
           <h3>Rule {r.id} — level {r.level}</h3>
           <button className="close" onClick={onClose} aria-label="close">×</button>
         </div>
+
+        <div className={`r-banner r-${rev.key}`}>{rev.detail}</div>
 
         <p className="drawer-desc">{r.description}</p>
 
@@ -109,6 +176,8 @@ export function AlertDrawer({ alert, role, onClose, onTriaged, onExpired }: Prop
             ))}
           </div>
         ) : null}
+
+        <AiPanel alert={alert} />
 
         <Triage alert={alert} role={role} onTriaged={onTriaged} onExpired={onExpired} />
 

@@ -73,6 +73,7 @@ services:
       - DASH_USERS_FILE=/app/state/users.json
       - DASH_TRIAGE_FILE=/app/state/triage-state.json
       - DASH_AUDIT_FILE=/app/state/audit.log
+      - DASH_FINDINGS_FILE=/app/state/ai-findings.json
     volumes:
       - ${DETECTION_LAB_ROOT}/dashboard/certs:/certs:ro
       - ${DETECTION_LAB_ROOT}/dashboard/state:/app/state

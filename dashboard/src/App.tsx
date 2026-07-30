@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Alert, Filters, Session, Stats, TriageState, TriageStatus } from "./types";
-import { getAlerts, getSession, getStats, logout, HttpError } from "./api";
+import type { Alert, AnalysisConfig, Filters, Session, Stats, TriageState, TriageStatus } from "./types";
+import { getAlerts, getAnalysis, getSession, getStats, logout, runAnalysis, HttpError } from "./api";
+import { awaitingReview } from "./review";
 import { AttackMatrix } from "./components/AttackMatrix";
 import { AlertTable } from "./components/AlertTable";
 import { AlertDrawer } from "./components/AlertDrawer";
@@ -44,10 +45,23 @@ export function App() {
   // Client-side filter over the loaded alert page (triage state lives in the
   // BFF store, not the indexer, so it can't be part of the indexer query).
   const [triageFilter, setTriageFilter] = useState<TriageStatus | null>(null);
+  // AI advisory layer: config for the sidebar copy, a queue filter, and a
+  // manual run trigger. Analysis is explicitly operator-triggered rather than
+  // automatic — a pass has a cost (and, with the LLM on, a per-alert API call).
+  const [aiConfig, setAiConfig] = useState<AnalysisConfig | undefined>(undefined);
+  const [aiFilter, setAiFilter] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runNote, setRunNote] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     getSession().then(setSession).catch(() => setSession(null));
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    getAnalysis().then((a) => setAiConfig(a.config)).catch(() => { /* non-fatal */ });
+  }, [session]);
 
   useEffect(() => {
     if (!session) return;
@@ -64,7 +78,23 @@ export function App() {
       })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [filters, session]);
+  }, [filters, session, reload]);
+
+  // Run a scoring pass over the current filter window, then reload so the new
+  // advisory findings show up on the alerts.
+  const analyze = () => {
+    setRunning(true); setRunNote(null);
+    runAnalysis(filters)
+      .then((r) => {
+        setRunNote(`Flagged ${r.flagged} of ${r.considered} alerts at level ${r.minLevel}+.`);
+        setReload((n) => n + 1);
+      })
+      .catch((e) => {
+        if (e instanceof HttpError && e.status === 401) setSession(null);
+        else setRunNote(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => setRunning(false));
+  };
 
   // Patch an alert's triage state in place after a successful update.
   const applyTriage = (id: string, t: TriageState) => {
@@ -80,12 +110,22 @@ export function App() {
 
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
 
-  const visibleAlerts = useMemo(
-    () => (triageFilter
-      ? data.alerts.filter((a) => a.triage?.status === triageFilter)
-      : data.alerts),
-    [data.alerts, triageFilter],
+  const awaitingCount = useMemo(
+    () => data.alerts.filter(awaitingReview).length,
+    [data.alerts],
   );
+
+  const visibleAlerts = useMemo(() => {
+    // The AI queue is a review queue, so it sorts by suggested priority rather
+    // than by time; every other view stays newest-first.
+    if (aiFilter) {
+      return data.alerts.filter(awaitingReview)
+        .sort((a, b) => (a.ai?.priority ?? 0) - (b.ai?.priority ?? 0));
+    }
+    return triageFilter
+      ? data.alerts.filter((a) => a.triage?.status === triageFilter)
+      : data.alerts;
+  }, [data.alerts, triageFilter, aiFilter]);
 
   if (session === undefined) return null; // session check in flight
   if (session === null) return <Login onLogin={setSession} />;
@@ -130,10 +170,18 @@ export function App() {
       <div className="shell">
       <Sidebar
         filters={filters}
-        onView={(patch) => { setTriageFilter(null); set(patch); }}
+        onView={(patch) => { setTriageFilter(null); setAiFilter(false); set(patch); }}
         triageCounts={stats?.triageCounts}
         triageFilter={triageFilter}
-        onTriageFilter={setTriageFilter}
+        onTriageFilter={(s) => { setAiFilter(false); setTriageFilter(s); }}
+        aiFilter={aiFilter}
+        onAiFilter={(on) => { setTriageFilter(null); setAiFilter(on); }}
+        awaitingCount={awaitingCount}
+        canRun={session.role !== "viewer"}
+        running={running}
+        onRun={analyze}
+        analysis={aiConfig}
+        runNote={runNote}
       />
 
       <div className="shell-main">
@@ -163,10 +211,11 @@ export function App() {
 
       <AlertTable
         alerts={visibleAlerts}
-        total={triageFilter ? visibleAlerts.length : data.total}
+        total={triageFilter || aiFilter ? visibleAlerts.length : data.total}
         loading={loading}
         onSelect={setSelected}
-        note={triageFilter ? `triage: ${triageFilter}` : undefined}
+        note={aiFilter ? "AI-flagged · awaiting human review"
+          : triageFilter ? `triage: ${triageFilter}` : undefined}
       />
       </div>
 

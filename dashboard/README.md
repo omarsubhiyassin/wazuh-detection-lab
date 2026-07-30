@@ -12,6 +12,9 @@ purpose-built API over `wazuh-alerts-*`; the browser only ever talks to same-ori
 - **Alert feed** — time, level, MITRE technique tags, rule, description, host. Click a row
   for a **detail drawer** with the MITRE mapping, raw log, and full `_source`.
 - **Filters** — time range, minimum level, host, free-text search.
+- **Sidebar** — saved views, the triage queue, and the **AI review queue**
+  (see [AI-assisted triage](#ai-assisted-triage-advisory-only)).
+- **Fleet rail** — hosts ranked by alert volume, and the top techniques seen.
 
 ## Prerequisites
 - **Node.js 18+** (for global `fetch`/`https.Agent` and `node --watch`).
@@ -58,9 +61,58 @@ npm run build && npm start   # open http://localhost:8787
 | `GET /api/auth/session` | current user, or 401 |
 | `GET /api/health` | indexer reachable + alert count |
 | `GET /api/stats?range&technique&minLevel&host&search` | totals, by-level, by-technique (+maxLevel/tactic), activity histogram |
-| `GET /api/alerts?…&size` | recent alerts (id + `_source`) for the feed/drawer |
+| `GET /api/alerts?…&size` | recent alerts (id + `_source` + triage + AI finding) for the feed/drawer |
+| `POST /api/alerts/:id/triage` | set status/assignee/note/AI verdict — **analyst+** |
+| `POST /api/analysis/run` | score the current filter window, store advisory findings — **analyst+** |
+| `GET /api/analysis` | current findings + the scoring configuration |
+| `GET /api/audit` | recent audit events — **admin only** |
 
 All endpoints except `/api/auth/*` require a signed-in session (401 otherwise).
+
+## AI-assisted triage (advisory only)
+
+The **detection** is not AI — Wazuh rules do that. This layer only *triages* what the
+rules already found: it scores each alert, flags the ones worth a look, and suggests an
+investigation order (`P1`, `P2`, …).
+
+**The ranking is deterministic**, not a model output. `server/analysis.js` applies a
+weighted score over signals already present in the alert:
+
+| Signal | Weight | Why |
+|--------|--------|-----|
+| rule level 13+ / 12 / 8+ | 45 / 40 / 20 | the ruleset's own severity |
+| multi-stage correlation rule fired | +30 | several related events already line up |
+| high-impact ATT&CK tactic | +5…+15 | credential access & lateral movement outrank execution |
+| on a real enrolled endpoint | +10 | outranks lab infrastructure and the synthetic generator |
+| same rule+host ≥3× in the window | +10 | repetition is signal |
+
+Same input, same output; every contribution is shown to the analyst as a plain sentence
+in the drawer. No API key, no cost, no data leaving the host.
+
+**Optional LLM rationale.** With `AI_LLM_ENABLED=true`, Claude drafts a 1–2 sentence
+rationale on top of the score. It is **off by default**, it never changes the score, the
+ranking, or any workflow state, and it degrades to "no prose" on failure or refusal.
+It needs `npm i @anthropic-ai/sdk` and `ANTHROPIC_API_KEY` — deliberately *not* a
+package.json dependency, so the default build stays free of a dependency it never calls.
+Log text is attacker-controllable, so it is fenced as untrusted data in the prompt, the
+model output is never parsed for actions, and the UI labels it unverified.
+
+**A human closes the investigation — enforced server-side, not by UI convention.**
+`server/analysis.js` writes only to its own advisory store and has no path to triage
+state. `triage.set()` rejects any call without an authenticated actor, and the acting
+username comes from the session, never the request body. The UI keeps the two states
+visually distinct — amber **"AI-flagged · awaiting human review"** vs green
+**"human-confirmed · closed by X"** — and closing requires the analyst to write a note.
+Their agree/disagree verdict on each flag is recorded, which is also the raw material for
+measuring the scorer's false-positive rate later.
+
+| Var | Default | Meaning |
+|-----|---------|---------|
+| `AI_MIN_LEVEL` | `8` | ignore alerts below this rule level |
+| `AI_FLAG_THRESHOLD` | `45` | score at which an alert is flagged |
+| `AI_LLM_ENABLED` | `false` | enable the Claude rationale |
+| `AI_LLM_MODEL` | `claude-opus-5` | model for the rationale |
+| `AI_LLM_MAX_SUMMARIES` | `5` | cap per pass (bounds cost/latency) |
 
 ## Design notes
 - **Why a BFF:** the browser can't hold indexer creds, and direct browser→indexer calls

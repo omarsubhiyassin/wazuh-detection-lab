@@ -23,12 +23,47 @@ export interface AlertSource {
 export type Role = "viewer" | "analyst" | "admin";
 export type TriageStatus = "new" | "acknowledged" | "investigating" | "closed";
 
+export type AiVerdict = "agree" | "disagree";
+
 export interface TriageState {
   status: TriageStatus;
   assignee: string | null;
   note: string;
+  /** The human's judgement of the AI finding (null = not yet judged). */
+  aiVerdict: AiVerdict | null;
   updatedBy: string;
   updatedAt: string;
+}
+
+/** Advisory AI output. Never carries workflow state — see server/analysis.js. */
+export interface AiFinding {
+  flagged: boolean;
+  score: number;
+  /** 1 = investigate first. */
+  priority: number;
+  /** Deterministic, auditable factors behind the score. */
+  reasons: string[];
+  /** Optional LLM prose. Unverified — shown labelled as such. */
+  summary: string | null;
+  summaryModel: string | null;
+  at: string;
+  by: string;
+}
+
+export interface AnalysisConfig {
+  minLevel: number;
+  threshold: number;
+  llmEnabled: boolean;
+  llmModel: string | null;
+}
+
+export interface AnalysisRun {
+  considered: number;
+  flagged: number;
+  minLevel: number;
+  threshold: number;
+  llm: boolean;
+  at: string;
 }
 
 export interface Session {
@@ -51,6 +86,7 @@ export interface Alert {
   id: string;
   source: AlertSource;
   triage?: TriageState | null;
+  ai?: AiFinding | null;
 }
 
 export interface TechniqueStat {

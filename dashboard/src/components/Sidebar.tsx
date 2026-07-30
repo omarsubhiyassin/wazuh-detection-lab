@@ -1,4 +1,4 @@
-import type { Filters, TriageStatus } from "../types";
+import type { AnalysisConfig, Filters, TriageStatus } from "../types";
 
 // Saved views: one-click filter presets over the existing filter model. Each
 // knows how to apply itself and how to tell whether it is currently active.
@@ -53,9 +53,21 @@ interface Props {
   triageCounts?: Record<TriageStatus, number>;
   triageFilter: TriageStatus | null;
   onTriageFilter: (s: TriageStatus | null) => void;
+  /** AI review queue. */
+  aiFilter: boolean;
+  onAiFilter: (on: boolean) => void;
+  awaitingCount: number;
+  canRun: boolean;
+  running: boolean;
+  onRun: () => void;
+  analysis?: AnalysisConfig;
+  runNote?: string | null;
 }
 
-export function Sidebar({ filters, onView, triageCounts, triageFilter, onTriageFilter }: Props) {
+export function Sidebar({
+  filters, onView, triageCounts, triageFilter, onTriageFilter,
+  aiFilter, onAiFilter, awaitingCount, canRun, running, onRun, analysis, runNote,
+}: Props) {
   return (
     <aside className="sidebar">
       <div className="rail-block">
@@ -70,6 +82,30 @@ export function Sidebar({ filters, onView, triageCounts, triageFilter, onTriageF
             </button>
           ))}
         </nav>
+      </div>
+
+      <div className="rail-block">
+        <h3 className="rail-title">AI review</h3>
+        <button type="button"
+          className={`queue-item${aiFilter ? " active" : ""}`}
+          onClick={() => onAiFilter(!aiFilter)}>
+          <span className="r-badge r-ai-awaiting">Awaiting human review</span>
+          <span className="queue-count">{awaitingCount}</span>
+        </button>
+        {canRun && (
+          <button type="button" className="rail-run" disabled={running} onClick={onRun}>
+            {running ? "Analyzing…" : "Run analysis on this view"}
+          </button>
+        )}
+        {runNote && <p className="rail-note">{runNote}</p>}
+        <p className="rail-note">
+          {analysis
+            ? `Scores alerts at level ${analysis.minLevel}+, flags at ${analysis.threshold}. ` +
+              (analysis.llmEnabled
+                ? `Summaries by ${analysis.llmModel} (advisory).`
+                : "Deterministic scoring only — no model calls.")
+            : "Ranking is advisory. Only an analyst can close an alert."}
+        </p>
       </div>
 
       <div className="rail-block">

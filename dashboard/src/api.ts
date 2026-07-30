@@ -1,4 +1,7 @@
-import type { Alert, AuditEvent, Filters, Session, Stats, TriageState, TriageStatus } from "./types";
+import type {
+  Alert, AiFinding, AiVerdict, AnalysisConfig, AnalysisRun,
+  AuditEvent, Filters, Session, Stats, TriageState, TriageStatus,
+} from "./types";
 
 /** Fetch error carrying the HTTP status so callers can react to 401s. */
 export class HttpError extends Error {
@@ -53,7 +56,7 @@ export const logout = () =>
 
 export async function setTriage(
   id: string,
-  patch: { status?: TriageStatus; assignee?: string | null; note?: string },
+  patch: { status?: TriageStatus; assignee?: string | null; note?: string; aiVerdict?: AiVerdict | null },
 ): Promise<{ id: string; triage: TriageState }> {
   const res = await fetch(`/api/alerts/${encodeURIComponent(id)}/triage`, {
     method: "POST",
@@ -67,3 +70,20 @@ export async function setTriage(
 
 export const getAudit = (limit = 200) =>
   getJSON<{ events: AuditEvent[] }>(`/api/audit?limit=${limit}`);
+
+// --- AI analysis (advisory) ----------------------------------------------
+
+export const getAnalysis = () =>
+  getJSON<{ findings: (AiFinding & { id: string })[]; config: AnalysisConfig }>(`/api/analysis`);
+
+/** Trigger a scoring pass over the current filter window. Analyst+ only. */
+export async function runAnalysis(f: Filters, size = 200): Promise<AnalysisRun> {
+  const res = await fetch("/api/analysis/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filters: f, size }),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new HttpError(res.status, json?.error ?? `HTTP ${res.status}`);
+  return json as AnalysisRun;
+}

@@ -50,20 +50,40 @@ export function getMany(ids) {
   return out;
 }
 
+/** Human verdicts on an AI finding. `null` = not yet judged. */
+export const AI_VERDICTS = ["agree", "disagree"];
+
 /**
  * Set/patch triage state for an alert. Returns { ok, record } or { ok:false,
- * error }. `by` is the acting username. `assignee`/`note` are optional.
+ * error }. `by` is the acting username. `assignee`/`note`/`aiVerdict` optional.
+ *
+ * THIS IS THE ONLY WRITER OF WORKFLOW STATE, AND IT REQUIRES A HUMAN ACTOR.
+ * `by` comes from an authenticated analyst+ session (see requireRole in
+ * auth.js) and is rejected if absent — so an automated caller cannot advance
+ * or close an investigation even if it reaches this function. The AI layer
+ * (server/analysis.js) writes only to its own advisory store and never calls
+ * this. "A person must confirm and close" is therefore a server-side
+ * constraint, not a UI convention.
  */
-export function set(id, { status, assignee, note }, by) {
+export function set(id, { status, assignee, note, aiVerdict }, by) {
   if (!id) return { ok: false, error: "missing alert id" };
+  if (typeof by !== "string" || !by.trim()) {
+    return { ok: false, error: "triage requires an authenticated human actor" };
+  }
   if (status !== undefined && !STATUSES.includes(status)) {
     return { ok: false, error: `status must be one of ${STATUSES.join(", ")}` };
+  }
+  if (aiVerdict !== undefined && aiVerdict !== null && !AI_VERDICTS.includes(aiVerdict)) {
+    return { ok: false, error: `aiVerdict must be one of ${AI_VERDICTS.join(", ")}` };
   }
   const prev = state[id] || {};
   const record = {
     status: status ?? prev.status ?? "new",
     assignee: assignee !== undefined ? assignee : (prev.assignee ?? null),
     note: note !== undefined ? note : (prev.note ?? ""),
+    // Did the human agree with the AI's flag? Recorded for the audit trail and
+    // so false-positive rates per rule can be measured later.
+    aiVerdict: aiVerdict !== undefined ? aiVerdict : (prev.aiVerdict ?? null),
     updatedBy: by,
     updatedAt: new Date().toISOString(),
   };
