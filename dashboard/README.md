@@ -7,7 +7,9 @@ purpose-built API over `wazuh-alerts-*`; the browser only ever talks to same-ori
 
 ## Views
 - **ATT&CK matrix** — techniques placed in their tactic columns, heat-colored by alert
-  count. Click a cell to filter the alert feed to that technique.
+  count, with a coverage edge separating "no rule" from "rule fired nothing"
+  (see [coverage vs activity](#attck-coverage-vs-activity)). Click a cell to filter the
+  alert feed to that technique.
 - **Stat tiles** — total / critical / high alerts, techniques seen, activity sparkline.
 - **Alert feed** — time, level, MITRE technique tags, rule, description, host. Click a row
   for a **detail drawer** with the MITRE mapping, raw log, and full `_source`.
@@ -38,6 +40,45 @@ npm run dev
 # production: build the SPA and serve everything from the BFF
 npm run build && npm start   # open http://localhost:8787
 ```
+
+## ATT&CK coverage vs activity
+
+A heatmap coloured by alert count renders two opposite situations identically: a technique
+we have **no rule for**, and one with a solid rule that simply **never fired**. Both show
+zero. Reading alert volume as coverage is the classic way to convince yourself a SOC is
+covered when it is not.
+
+`server/coverage.js` parses `detections/rules/local_rules.xml` for `<mitre>` mappings and
+cross-references them against observed alerts, so every cell reports both axes — background
+is alert volume, the left edge is whether we have a detection of our own:
+
+| State | Meaning |
+|---|---|
+| **covered · firing** | our rule exists and has fired — demonstrably works |
+| **covered · quiet** | our rule exists, no alerts in this window — *not* a gap |
+| **vendor rules only** | alerts arrived, but from the built-in ruleset; no detection of ours |
+| **blind spot** | no rule, no alerts |
+
+On the current lab that reclassifies **five** techniques (T1070.001, T1003.001, T1110,
+T1021.002, T1071.004) from apparent blind spots to *covered · quiet*. The `N★` badge is how
+many of our detections map to that technique; hovering lists them by rule ID and level.
+
+Two deliberate choices:
+
+- **A commented-out rule is not coverage.** Comments are stripped before parsing — believing
+  a disabled detection protects you is the dangerous direction of this error.
+- **If the ruleset cannot be read, coverage is `unknown`, not "none".** Every cell greys out
+  and the legend says why. Inventing a blind spot that does not exist is as wrong as hiding
+  one.
+
+Parsing is a regex over a file we author ourselves rather than an XML dependency:
+`local_rules.xml` is a multi-root Wazuh fragment most parsers need wrapped anyway, and
+`detections-ci` already checks it is well-formed with unique rule IDs. A test parses the
+**real** ruleset and asserts every matrix technique resolves, so a future edit cannot
+silently report the whole lab as uncovered.
+
+The file is bind-mounted read-only into the dashboard container and re-read on mtime
+change, so `deploy-rules.sh` updates coverage without a restart.
 
 ## Detection efficacy metrics
 
@@ -80,7 +121,7 @@ truth*, they only cover alerts someone actually triaged, and a rate stays `null`
 npm test        # node:test, no test framework dependency
 ```
 
-61 tests over `tests/`, run in CI on every dashboard change
+71 tests over `tests/`, run in CI on every dashboard change
 ([dashboard-ci.yml](../.github/workflows/dashboard-ci.yml)). They exist to protect
 **security invariants that are otherwise only claims in comments**:
 
@@ -125,6 +166,7 @@ each make the suite fail. A test that cannot fail protects nothing.
 | `POST /api/analysis/run` | score the current filter window, store advisory findings — **analyst+** |
 | `GET /api/analysis` | current findings + the scoring configuration |
 | `GET /api/metrics` | detection efficacy: per-rule FP rate, timings, scorer agreement |
+| `GET /api/coverage` | which ATT&CK techniques our own ruleset covers |
 | `GET /api/audit` | recent audit events — **admin only** |
 
 All endpoints except `/api/auth/*` require a signed-in session (401 otherwise).

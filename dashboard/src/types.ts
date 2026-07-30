@@ -181,6 +181,38 @@ export interface Metrics {
   generatedAt: string;
 }
 
+// --- ATT&CK coverage ---------------------------------------------------------
+
+export interface CoveringRule {
+  id: string;
+  level: number;
+  description: string;
+}
+
+export interface Coverage {
+  /** Technique id -> the custom rules that map to it. */
+  byTechnique: Record<string, CoveringRule[]>;
+  ruleCount?: number;
+  /** Rules with level > 0 — base rules are plumbing, not detections. */
+  detectionCount?: number;
+  mappedRuleCount?: number;
+  source?: string;
+  readAt?: string;
+  /** Set when the ruleset could not be read — coverage is then UNKNOWN, not absent. */
+  error?: string;
+}
+
+/**
+ * "no rule" and "rule fired nothing" are opposite situations that an
+ * alert-count heatmap renders identically.
+ */
+export type CoverageState =
+  | "active"    // we have a rule and it has fired — demonstrably works
+  | "quiet"     // we have a rule, no alerts in this window — covered, not a gap
+  | "vendor"    // no rule of ours, but alerts arrived from the built-in ruleset
+  | "gap"       // no rule, no alerts — a genuine blind spot
+  | "unknown";  // the ruleset could not be read; claiming a gap would be a lie
+
 export interface Filters {
   range: string;
   technique?: string;

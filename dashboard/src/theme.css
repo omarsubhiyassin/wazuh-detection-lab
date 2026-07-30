@@ -197,6 +197,31 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .heat-2 { background: #4a2c14; border-color: var(--high); }
 .heat-3 { background: #4d1f1c; border-color: var(--crit); }
 
+/* ===== coverage vs activity =================================================
+   Two independent axes on one cell: the BACKGROUND is alert volume, the LEFT
+   EDGE is whether we have a detection of our own. They must stay separable —
+   the whole point is that "no rule" and "rule fired nothing" stop looking
+   alike. Coverage uses an inset bar rather than border-color because heat
+   already owns the border. */
+.cell { position: relative; }
+.cov-active { box-shadow: inset 3px 0 0 var(--accent); }
+.cov-quiet  { box-shadow: inset 3px 0 0 var(--tag); }
+.cov-vendor { box-shadow: inset 3px 0 0 var(--med); }
+.cov-gap    { box-shadow: inset 3px 0 0 var(--crit); border-style: dashed; }
+.cov-unknown { box-shadow: inset 3px 0 0 var(--low); }
+/* A covered technique with no alerts is a quiet win, not a blind spot — it must
+   not be dimmed like an empty uncovered cell. */
+.cell.cov-quiet.heat-0 { opacity: 1; }
+.cell-cov { position: absolute; top: 6px; right: 7px; font-size: 10px;
+  color: var(--muted); font-family: ui-monospace, monospace; }
+
+.matrix-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+  margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border); font-size: 11px; }
+.legend-item { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.legend-swatch { width: 10px; height: 10px; border-radius: 3px; background: var(--panel-2);
+  border: 1px solid var(--border); }
+.legend-note { flex: 1 1 100%; color: var(--muted); opacity: .75; line-height: 1.5; }
+
 /* alerts table */
 .table-wrap { overflow-x: auto; }
 table.alerts { width: 100%; border-collapse: collapse; }

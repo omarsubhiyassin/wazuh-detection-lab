@@ -1,5 +1,5 @@
 import type {
-  Alert, AiFinding, AiVerdict, AnalysisConfig, AnalysisRun, Disposition,
+  Alert, AiFinding, AiVerdict, AnalysisConfig, AnalysisRun, Coverage, Disposition,
   AuditEvent, Filters, Metrics, Session, Stats, TriageState, TriageStatus,
 } from "./types";
 
@@ -75,6 +75,8 @@ export const getAudit = (limit = 200) =>
   getJSON<{ events: AuditEvent[] }>(`/api/audit?limit=${limit}`);
 
 export const getMetrics = () => getJSON<Metrics>(`/api/metrics`);
+
+export const getCoverage = () => getJSON<Coverage>(`/api/coverage`);
 
 // --- AI analysis (advisory) ----------------------------------------------
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Alert, AnalysisConfig, Filters, Session, Stats, TriageState, TriageStatus } from "./types";
-import { getAlerts, getAnalysis, getSession, getStats, logout, runAnalysis, HttpError } from "./api";
+import type { Alert, AnalysisConfig, Coverage, Filters, Session, Stats, TriageState, TriageStatus } from "./types";
+import { getAlerts, getAnalysis, getCoverage, getSession, getStats, logout, runAnalysis, HttpError } from "./api";
 import { awaitingReview } from "./review";
 import { AttackMatrix } from "./components/AttackMatrix";
 import { AlertTable } from "./components/AlertTable";
@@ -51,6 +51,7 @@ export function App() {
   // manual run trigger. Analysis is explicitly operator-triggered rather than
   // automatic — a pass has a cost (and, with the LLM on, a per-alert API call).
   const [aiConfig, setAiConfig] = useState<AnalysisConfig | undefined>(undefined);
+  const [coverage, setCoverage] = useState<Coverage | undefined>(undefined);
   const [aiFilter, setAiFilter] = useState(false);
   const [running, setRunning] = useState(false);
   const [runNote, setRunNote] = useState<string | null>(null);
@@ -63,6 +64,9 @@ export function App() {
   useEffect(() => {
     if (!session) return;
     getAnalysis().then((a) => setAiConfig(a.config)).catch(() => { /* non-fatal */ });
+    // Coverage is static per deploy, so fetch once. On failure it stays
+    // undefined and the matrix reports coverage as unknown rather than absent.
+    getCoverage().then(setCoverage).catch(() => { /* non-fatal */ });
   }, [session]);
 
   useEffect(() => {
@@ -211,6 +215,7 @@ export function App() {
           byTechnique={stats?.byTechnique ?? []}
           selected={filters.technique}
           onSelect={(t) => set({ technique: t })}
+          coverage={coverage}
         />
       </section>
 

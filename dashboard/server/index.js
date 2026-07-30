@@ -13,6 +13,7 @@ import * as audit from "./audit.js";
 import * as triage from "./triage.js";
 import * as analysis from "./analysis.js";
 import * as metrics from "./metrics.js";
+import * as coverage from "./coverage.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -248,6 +249,14 @@ async function alertContext(id) {
 // so any signed-in role may see it.
 app.get("/api/metrics", (_req, res) => {
   res.json(metrics.compute());
+});
+
+// --- ATT&CK coverage ----------------------------------------------------------
+// Which techniques our own ruleset actually covers. Cross-referenced in the UI
+// against observed alerts so "no rule" and "rule fired nothing" stop looking
+// alike. Read from detections/rules/local_rules.xml (DASH_RULES_FILE).
+app.get("/api/coverage", (_req, res) => {
+  res.json(coverage.read());
 });
 
 // --- AI analysis (advisory only) ---------------------------------------------

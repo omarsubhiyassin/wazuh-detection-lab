@@ -74,9 +74,16 @@ services:
       - DASH_TRIAGE_FILE=/app/state/triage-state.json
       - DASH_AUDIT_FILE=/app/state/audit.log
       - DASH_FINDINGS_FILE=/app/state/ai-findings.json
+      # Read-only view of the ruleset so the dashboard can show which ATT&CK
+      # techniques we actually have detections for, separately from which ones
+      # produced alerts.
+      - DASH_RULES_FILE=/app/rules/local_rules.xml
     volumes:
       - ${DETECTION_LAB_ROOT}/dashboard/certs:/certs:ro
       - ${DETECTION_LAB_ROOT}/dashboard/state:/app/state
+      # Same file the manager loads, mounted read-only. Re-read on mtime change,
+      # so deploy-rules.sh updates coverage without a dashboard restart.
+      - ${DETECTION_LAB_ROOT}/detections/rules/local_rules.xml:/app/rules/local_rules.xml:ro
     ports:
       - "127.0.0.1:8787:8787"
 
