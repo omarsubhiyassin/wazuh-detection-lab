@@ -5,6 +5,8 @@ interface Props {
   total: number;
   loading: boolean;
   onSelect: (a: Alert) => void;
+  /** Optional badge describing an extra client-side filter (e.g. triage state). */
+  note?: string;
 }
 
 function levelClass(level: number): string {
@@ -19,11 +21,11 @@ function fmtTime(ts: string): string {
   return isNaN(d.getTime()) ? ts : d.toLocaleString();
 }
 
-export function AlertTable({ alerts, total, loading, onSelect }: Props) {
+export function AlertTable({ alerts, total, loading, onSelect, note }: Props) {
   return (
     <div className="panel">
       <div className="panel-head">
-        <h2>Alerts</h2>
+        <h2>Alerts {note && <span className="chip chip-sm">{note}</span>}</h2>
         <span className="muted">
           {loading ? "loading…" : `showing ${alerts.length} of ${total}`}
         </span>

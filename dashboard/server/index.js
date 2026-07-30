@@ -118,6 +118,17 @@ app.get("/api/stats", async (req, res) => {
         },
       },
       over_time: { auto_date_histogram: { field: "timestamp", buckets: 48 } },
+      // Which hosts are producing alerts, how severe, and how recently. NOTE:
+      // this is alert activity, not agent connectivity — the read-only account
+      // only sees the alerts index, so a quiet host looks the same as an
+      // offline one. The UI labels it as "last alert", never "online".
+      by_agent: {
+        terms: { field: "agent.name", size: 12 },
+        aggs: {
+          max_level: { max: { field: "rule.level" } },
+          last_seen: { max: { field: "timestamp" } },
+        },
+      },
     },
   };
   try {
@@ -134,6 +145,14 @@ app.get("/api/stats", async (req, res) => {
         tactic: b.tactic.buckets?.[0]?.key ?? null,
       })),
       overTime: (a.over_time.buckets || []).map((b) => ({ t: b.key, count: b.doc_count })),
+      byAgent: (a.by_agent?.buckets || []).map((b) => ({
+        name: b.key,
+        count: b.doc_count,
+        maxLevel: Math.round(b.max_level.value ?? 0),
+        lastSeen: b.last_seen.value_as_string ?? null,
+      })),
+      // Global triage queue (from the BFF store, not the indexer).
+      triageCounts: triage.counts(),
     });
   } catch (e) {
     res.status(502).json({ error: String(e) });

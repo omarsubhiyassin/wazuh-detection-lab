@@ -60,11 +60,21 @@ export interface TechniqueStat {
   tactic: string | null;
 }
 
+export interface AgentStat {
+  name: string;
+  count: number;
+  maxLevel: number;
+  /** Timestamp of this host's most recent ALERT — not a connectivity signal. */
+  lastSeen: string | null;
+}
+
 export interface Stats {
   total: number;
   byLevel: { level: number; count: number }[];
   byTechnique: TechniqueStat[];
   overTime: { t: number; count: number }[];
+  byAgent: AgentStat[];
+  triageCounts: Record<TriageStatus, number>;
 }
 
 export interface Filters {

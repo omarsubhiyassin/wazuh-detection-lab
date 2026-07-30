@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Alert, Filters, Session, Stats, TriageState } from "./types";
+import type { Alert, Filters, Session, Stats, TriageState, TriageStatus } from "./types";
 import { getAlerts, getSession, getStats, logout, HttpError } from "./api";
 import { AttackMatrix } from "./components/AttackMatrix";
 import { AlertTable } from "./components/AlertTable";
 import { AlertDrawer } from "./components/AlertDrawer";
 import { AuditPanel } from "./components/AuditPanel";
+import { FleetRail } from "./components/FleetRail";
+import { Sidebar } from "./components/Sidebar";
 import { Login } from "./components/Login";
 import { TECHNIQUES } from "./attack";
 
@@ -39,6 +41,9 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Alert | null>(null);
   const [showAudit, setShowAudit] = useState(false);
+  // Client-side filter over the loaded alert page (triage state lives in the
+  // BFF store, not the indexer, so it can't be part of the indexer query).
+  const [triageFilter, setTriageFilter] = useState<TriageStatus | null>(null);
 
   useEffect(() => {
     getSession().then(setSession).catch(() => setSession(null));
@@ -74,6 +79,13 @@ export function App() {
   }, [stats]);
 
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
+
+  const visibleAlerts = useMemo(
+    () => (triageFilter
+      ? data.alerts.filter((a) => a.triage?.status === triageFilter)
+      : data.alerts),
+    [data.alerts, triageFilter],
+  );
 
   if (session === undefined) return null; // session check in flight
   if (session === null) return <Login onLogin={setSession} />;
@@ -115,6 +127,16 @@ export function App() {
 
       {error && <div className="error">Cannot reach the API: {error}. Is the BFF running and the indexer up?</div>}
 
+      <div className="shell">
+      <Sidebar
+        filters={filters}
+        onView={(patch) => { setTriageFilter(null); set(patch); }}
+        triageCounts={stats?.triageCounts}
+        triageFilter={triageFilter}
+        onTriageFilter={setTriageFilter}
+      />
+
+      <div className="shell-main">
       <section className="tiles">
         <div className="tile"><div className="tile-n">{stats?.total ?? "—"}</div><div className="tile-l">alerts</div></div>
         <div className="tile crit"><div className="tile-n">{sumLevels(stats, 12, 15)}</div><div className="tile-l">critical (12+)</div></div>
@@ -139,7 +161,22 @@ export function App() {
         />
       </section>
 
-      <AlertTable alerts={data.alerts} total={data.total} loading={loading} onSelect={setSelected} />
+      <AlertTable
+        alerts={visibleAlerts}
+        total={triageFilter ? visibleAlerts.length : data.total}
+        loading={loading}
+        onSelect={setSelected}
+        note={triageFilter ? `triage: ${triageFilter}` : undefined}
+      />
+      </div>
+
+      <FleetRail
+        stats={stats}
+        filters={{ host: filters.host, technique: filters.technique }}
+        onHost={(host) => set({ host })}
+        onTechnique={(technique) => set({ technique })}
+      />
+      </div>
 
       <AlertDrawer alert={selected} role={session.role} onClose={() => setSelected(null)}
         onTriaged={applyTriage} onExpired={() => setSession(null)} />

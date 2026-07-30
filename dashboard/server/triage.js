@@ -34,6 +34,15 @@ export function get(id) {
   return state[id] || null;
 }
 
+/** Counts per status across the whole store (drives the sidebar queue). */
+export function counts() {
+  const out = Object.fromEntries(STATUSES.map((s) => [s, 0]));
+  for (const rec of Object.values(state)) {
+    if (rec && out[rec.status] !== undefined) out[rec.status] += 1;
+  }
+  return out;
+}
+
 /** Triage records for a set of ids, as { id: record }. */
 export function getMany(ids) {
   const out = {};
