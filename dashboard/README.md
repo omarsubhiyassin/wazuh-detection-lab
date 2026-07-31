@@ -54,7 +54,9 @@ modes pulling in opposite directions:
   measurement.
 
 So the prune is asymmetric. **Open** records whose alert has aged out (`DASH_ALERT_RETENTION_DAYS`,
-default 30 — keep in sync with `ALERTS_RETENTION_DAYS`) are dropped. **Closed** records are
+default 90) are dropped. That default must be **≥ `ALERTS_RETENTION_DAYS`** in `infra/.env` —
+setting it shorter deletes triage records whose alert is still in the indexer, so it errs long
+on purpose. **Closed** records are
 kept indefinitely by default and stay attributable to their rule without the alert, thanks
 to the denormalized `context` block; set `DASH_CLOSED_RETENTION_DAYS` if you want them to
 expire. A record with **no** `alertTs` is never aged out on a guess. Pruning runs at startup

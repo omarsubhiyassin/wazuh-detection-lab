@@ -42,6 +42,12 @@ jobs:
           fi
           echo "no duplicate rule IDs ($(grep -coE 'rule id="[0-9]+"' \
             detections/rules/local_rules.xml) rules)"
+      - name: Suppression lint
+        # wazuh-logtest cannot reach the native windows_eventchannel decoder, so
+        # rules anchored on vendor sysmon_event_N rules have no behavioural test.
+        # This guards the realistic regression instead: someone loosening a
+        # suppression and silently creating a blind spot. See the script header.
+        run: python3 detections/tests/lint_rules.py
 
   logtest:
     runs-on: ubuntu-latest

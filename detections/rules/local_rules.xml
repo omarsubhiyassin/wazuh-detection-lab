@@ -306,3 +306,60 @@
   </rule>
 
 </group>
+
+<!-- ========================= Tuning / FP suppression ========================
+  Rules that SILENCE a noisy vendor detection for a specific, provably benign
+  generator. Separate ID block (100800+) and group so tuning is never confused
+  with detection, and so an audit can answer "what have we deliberately stopped
+  alerting on?" by reading one section.
+
+  Rules for this block:
+    * Suppress a GENERATOR, never a behaviour. Conditions must pin the writing
+      process AND the artefact, so the exclusion cannot be inherited by
+      anything else that happens to look similar.
+    * Record the measured impact and the residual risk in the comment. A
+      suppression with no stated blind spot has not been thought through.
+    * Never suppress a whole rule to fix one noisy source.
+========================================================================== -->
+<group name="detection_lab,tuning,windows,">
+
+  <!-- Vendor rule 92213 ("Executable file dropped in folder commonly used by
+       malware", level 15) matches ANY of exe|dll|ps1|bat|... written under
+       %LOCALAPPDATA%\Temp. PowerShell writes a script-policy probe file there
+       every time it runs a script, to test AppLocker/script enforcement:
+         C:\Users\<u>\AppData\Local\Temp\__PSScriptPolicyTest_<8>.<3>.ps1
+       That is interpreter plumbing, not a file drop — the rule's premise does
+       not hold, so this is a false positive rather than benign-but-real
+       activity, and suppression (not a severity change) is the right fix.
+
+       MEASURED: 389 of 499 alerts for 92213 over 30 days (78%) were this probe,
+       all from AMIGO, all at level 15 — above NOTIFY_MIN_LEVEL, so every one
+       paged Slack.
+
+       SCOPE: both conditions are load-bearing. The writer must be powershell/
+       pwsh AND the artefact must match .NET GetRandomFileName()'s exact 8.3
+       shape under Temp. A real executable dropped by PowerShell still alerts;
+       a probe-named file written by any other process still alerts.
+
+       RESIDUAL RISK (accepted, documented): an attacker already executing as
+       powershell.exe could name a dropped .ps1 to match this exact pattern and
+       evade 92213. They must first have PowerShell execution, which 100101
+       (encoded command line) and 100430 (download cradle) detect independently,
+       and this suppression does not touch either.
+
+       BACKSLASHES: events from the windows_eventchannel decoder carry path
+       separators as DOUBLED backslashes, so `\\` (one literal backslash) only
+       matches by luck on the final segment — which is why 100101's
+       `\\powershell\.exe$` works. A multi-segment path written that way matches
+       nothing at all, silently, and the suppression looks deployed while every
+       alert keeps firing. Verified live: it did exactly that. `\\+` matches one
+       or more separators, so the rule is correct on either encoding. -->
+  <rule id="100800" level="0">
+    <if_sid>92213</if_sid>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\+(powershell|pwsh)\.exe$</field>
+    <field name="win.eventdata.targetFilename" type="pcre2">(?i)\\+AppData\\+Local\\+Temp\\+__PSScriptPolicyTest_[a-z0-9]{8}\.[a-z0-9]{3}\.ps1$</field>
+    <description>PowerShell script-policy probe file in %TEMP% — benign interpreter plumbing, tuned out of 92213.</description>
+    <group>false_positive,</group>
+  </rule>
+
+</group>

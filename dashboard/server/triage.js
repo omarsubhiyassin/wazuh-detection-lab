@@ -28,7 +28,12 @@ const FILE = process.env.DASH_TRIAGE_FILE ||
 
 // Keep in sync with ALERTS_RETENTION_DAYS in infra/.env — how long an alert
 // survives in the indexer. Past this, an open record is unactionable.
-const ALERT_RETENTION_DAYS = Number(process.env.DASH_ALERT_RETENTION_DAYS || 30);
+//
+// The default deliberately matches the project's configured retention (90) and
+// errs LONG: too short and the prune deletes triage records whose alert is
+// still sitting in the indexer, which destroys real work. Too long merely means
+// a few unopenable records linger until the next pass.
+const ALERT_RETENTION_DAYS = Number(process.env.DASH_ALERT_RETENTION_DAYS || 90);
 // 0 = keep closed records forever (the default). They are the metrics history.
 const CLOSED_RETENTION_DAYS = Number(process.env.DASH_CLOSED_RETENTION_DAYS || 0);
 

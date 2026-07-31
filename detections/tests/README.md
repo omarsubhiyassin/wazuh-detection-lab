@@ -40,3 +40,27 @@ the level-0 base rule (100100) and a normal DNS lookup only the level-0 Suricata
 1. Drop a one-line sample event in `samples/`.
 2. Add a row to `cases.tsv` with the expected rule ID (or `NOALERT`).
 3. Re-run `run_logtest.sh`.
+
+## What this harness cannot test
+
+`wazuh-logtest` always decodes JSON input with the XML **`json`** decoder. It has no way
+to reach the native **`windows_eventchannel`** decoder — verified by sweeping
+`-l EventChannel|WinEvtLog|Microsoft-Windows-Sysmon/Operational|windows_eventchannel`, which
+all still report `name: 'json'`.
+
+That has a consequence worth being explicit about: for the **dual-base** Windows rules, these
+cases exercise the *generator* leg (`decoded_as json`) and **not** the real eventchannel leg
+(`<if_group>sysmon_event_N</if_group>`). The dual-base pattern exists precisely because those
+two paths behave differently, so the leg that runs in production is the one the harness does
+not cover. Rules anchored on a vendor rule in that tree — the suppressions in the
+`tuning` group — are unreachable here at all.
+
+Two things compensate:
+
+- **`lint_rules.py`** (run in CI) statically guards suppression rules against the realistic
+  regression: someone loosening one and silently creating a blind spot. It requires ≥2 field
+  conditions, rejects unbounded patterns, and demands a documented residual risk.
+- **Live verification on a real endpoint** for anything eventchannel-anchored. This is not
+  optional ceremony: rule 100800 was deployed once with a pattern that matched *nothing*,
+  the harness passed 18/18, and only firing real events on an enrolled host revealed it.
+  See the BACKSLASHES note on that rule.
