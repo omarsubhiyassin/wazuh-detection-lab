@@ -1,0 +1,134 @@
+# Detection <-> Atomic Red Team mapping.
+#
+# WHAT THIS IS
+#   For each of our own detection rules, the specific Atomic Red Team test that
+#   exercises it — by GUID, so it names a real, versioned test rather than a
+#   vague "run something like this". This turns "we cover T1059.001" into "run
+#   THIS atomic and rule 100101 must fire", which is the difference between a
+#   claim and a validation.
+#
+# WHAT IT IS NOT
+#   It is NOT a CI job that runs atomics. Atomic Red Team executes real attacker
+#   behaviour on a real host, and our detections read Windows Sysmon telemetry
+#   via the eventchannel decoder — which wazuh-logtest cannot decode (see
+#   detections/tests/README.md). So the atomics run LIVE on the enrolled
+#   endpoint (Invoke-AtomicValidation.ps1), not in an ephemeral runner.
+#
+#   CI validates this FILE instead: every detection is accounted for (mapped or
+#   exempted), every GUID it names is real (checked against the pinned snapshot
+#   in index.snapshot.json), and the platform fits. That keeps the promise
+#   honest without pretending a GitHub runner detonated malware.
+#
+# HONEST NUANCE THIS SURFACED
+#   Our rule->technique tags do not line up 1:1 with where ART files its tests:
+#     * ART moved the Clear-Windows-Event-Logs atomics to T1685.005, though we
+#       (and MITRE) tag the behaviour T1070.001. The atomic is right; the ID
+#       differs. Recorded per-rule.
+#     * Our SSH brute-force scenario is Linux; ART's brute-force atomics are
+#       Windows password-spray. No clean atomic — exempted with the reason.
+#     * Correlation rules fire on a SEQUENCE, so no single atomic triggers them;
+#       they are validated by chaining the component atomics.
+#   Surfacing that mismatch is the point of the cross-reference, not a defect.
+
+meta:
+  atomic_red_team_ref: "1ba1dd8d9ce6f74700f7aec2e60de5632f667f03"
+  snapshot: index.snapshot.json
+
+# ---- Rules validated by a single atomic --------------------------------------
+# rule:        our rule id (must exist in local_rules.xml with level > 0)
+# technique:   the ATT&CK id our rule tags
+# atomic:      { technique: <where ART files it>, guid: <real test>, name: ... }
+# platform:    where the atomic runs; must match the snapshot
+mapped:
+  - rule: "100101"
+    technique: T1059.001
+    atomic: { technique: T1059.001, guid: 86a43bad-12e3-4e85-b97c-4d5cf25b95c3, name: "ATHPowerShellCommandLineParameter -EncodedCommand parameter variations" }
+    platform: windows
+    note: "Produces Sysmon EID1 with an -EncodedCommand line; 100101's regex matches the base64 arg."
+
+  - rule: "100110"
+    technique: T1053.005
+    atomic: { technique: T1053.005, guid: 42f53695-ad4a-4546-abb6-7d837f644a71, name: "Scheduled task Local" }
+    platform: windows
+    note: "Uses schtasks.exe /create — the schtasks child-process path (Sysmon EID1)."
+
+  - rule: "100120"
+    technique: T1053.005
+    atomic: { technique: T1053.005, guid: 42f53695-ad4a-4546-abb6-7d837f644a71, name: "Scheduled task Local" }
+    platform: windows
+    note: "Same atomic, different signal: schtasks registration raises Security 4698, which 100120/100121 anchor on."
+
+  - rule: "100310"
+    technique: T1105
+    atomic: { technique: T1105, guid: dd3b61dd-7bbc-48cd-ab51-49ad1a776df0, name: "certutil download (urlcache)" }
+    platform: windows
+    note: "Ingress tool transfer. The atomic's default URL is a domain; 100310 anchors on a BARE-IP URL, so run with a bare-IP argument to trigger it."
+
+  - rule: "100410"
+    technique: T1071.004
+    atomic: { technique: T1071.004, guid: 3efc144e-1af8-46bb-8ca2-1376bb6db8b6, name: "DNS Regular Beaconing" }
+    platform: windows
+    note: "Requires Sysmon DNS query logging (EID22) enabled for the eventchannel path to carry the queries."
+
+  - rule: "100500"
+    technique: T1021.002
+    atomic: { technique: T1021.002, guid: 0eb03d41-79e4-4393-8e57-6344856be1cf, name: "Copy and Execute File with PsExec" }
+    platform: windows
+    note: "PsExec service creation / remote exec — the lateral-movement signal 100500 detects."
+
+  - rule: "100600"
+    technique: T1070.001
+    atomic: { technique: T1685.005, guid: b13e9306-3351-4b4b-a6e8-477358b0b498, name: "Delete System Logs Using Clear-EventLog" }
+    platform: windows
+    note: "TECHNIQUE-ID MISMATCH: we tag T1070.001; ART files clear-log atomics under T1685.005 at this ref. Clear-EventLog raises Security 1102, which 100600 anchors on."
+
+  - rule: "100601"
+    technique: T1070.001
+    atomic: { technique: T1685.005, guid: e6abb60e-26b8-41da-8aae-0c35174b0967, name: "Clear Logs" }
+    platform: windows
+    note: "TECHNIQUE-ID MISMATCH (see 100600). This atomic uses wevtutil cl, the command line 100601 detects."
+
+  - rule: "100700"
+    technique: T1003.001
+    atomic: { technique: T1003.001, guid: 0be2230c-9ab3-4ac2-8826-3199b9a0ebf8, name: "Dump LSASS.exe Memory using ProcDump" }
+    platform: windows
+    note: "ProcDump opening LSASS — the process-access signal 100700 detects (Sysmon EID10)."
+
+  - rule: "100701"
+    technique: T1003.001
+    atomic: { technique: T1003.001, guid: 2536dee2-12fb-459a-8c37-971844fa73be, name: "Dump LSASS.exe Memory using comsvcs.dll" }
+    platform: windows
+    note: "rundll32 comsvcs.dll MiniDump — LSASS-dump tooling on the command line, which 100701 detects."
+
+# ---- Rules with no clean single atomic (deliberate, with the reason) ---------
+# Every detection must appear here or in `mapped`, so nothing is silently
+# unvalidated. `validated_by` says how we DO prove it instead.
+exempt:
+  - rule: "100121"
+    reason: "Same behaviour as 100120 (Security 4698 scheduled task). The same atomic (42f53695) validates both; 100121 adds the suspicious-interpreter condition, exercised by the generator sample."
+    validated_by: "atomic 42f53695 (shared with 100120) + generator regression sample"
+
+  - rule: "100125"
+    technique: T1053.005
+    reason: "Generator-json twin of 100120 in the dual-base pattern. It fires only on decoded_as json events (the synthetic generator), never on real eventchannel telemetry, so an atomic run on the endpoint hits 100120 (its eventchannel twin), not this rule."
+    validated_by: "generator regression sample (scheduled_task_4698); its eventchannel twin 100120 is atomic-validated"
+
+  - rule: "100300"
+    technique: T1071.004
+    reason: "DNS TXT tunneling with long hex subdomains. ART's DNS atomics (e.g. fef31710 DNS Long Domain Query) approximate the volume/length but not our TXT-record + hex-subdomain shape; not a faithful trigger."
+    validated_by: "generator regression sample (dns_txt_tunnel) + live custom query"
+
+  - rule: "100400"
+    technique: T1078
+    reason: "Linux SSH brute-force-then-success. ART's brute-force atomics are Windows password-spray (T1110.003); there is no faithful Linux-SSH atomic, and the 'then success from the same IP' correlation is ours."
+    validated_by: "fleet attack simulation (SSH brute force) + generator composite sample"
+
+  - rule: "100420"
+    technique: T1059.001
+    reason: "Correlation rule: encoded PowerShell THEN scheduled-task persistence on the same host. No single atomic fires it; it needs the sequence."
+    validated_by: "chain atomics 86a43bad (T1059.001) then 42f53695 (T1053.005) on one host, in the timeframe window"
+
+  - rule: "100430"
+    technique: T1059.001
+    reason: "Correlation rule: the same encoded-PowerShell process makes an outbound connection (download cradle). Closest single atomic is bf8c1441 (BloodHound download cradle), but the rule keys on same-processGuid exec+network, which is the correlation."
+    validated_by: "atomic bf8c1441 (encoded PS + network) + generator composite sample"

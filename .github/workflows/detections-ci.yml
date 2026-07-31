@@ -48,6 +48,14 @@ jobs:
         # This guards the realistic regression instead: someone loosening a
         # suppression and silently creating a blind spot. See the script header.
         run: python3 detections/tests/lint_rules.py
+      - name: Atomic Red Team mapping
+        # Keeps the detection<->atomic mapping honest: every detection is mapped
+        # to a real ART test (GUID verified against a pinned snapshot) or
+        # explicitly exempted, and the live runner stays in sync. It does NOT run
+        # atomics — that is live-only. See detections/atomics/README.md.
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 detections/tests/validate_atomics.py
 
   logtest:
     runs-on: ubuntu-latest

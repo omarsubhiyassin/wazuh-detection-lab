@@ -1,0 +1,734 @@
+{
+ "_ref": "1ba1dd8d9ce6f74700f7aec2e60de5632f667f03",
+ "_source": "github.com/redcanaryco/atomic-red-team",
+ "techniques": {
+  "T1003.001": {
+   "display_name": "OS Credential Dumping: LSASS Memory",
+   "tests": {
+    "0be2230c-9ab3-4ac2-8826-3199b9a0ebf8": {
+     "executor": "command_prompt",
+     "name": "Dump LSASS.exe Memory using ProcDump",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "2536dee2-12fb-459a-8c37-971844fa73be": {
+     "executor": "powershell",
+     "name": "Dump LSASS.exe Memory using comsvcs.dll",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "453acf13-1dbd-47d7-b28a-172ce9228023": {
+     "executor": "command_prompt",
+     "name": "Offline Credential Theft With Mimikatz",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "47a539d1-61b9-4364-bf49-a68bc2a95ef0": {
+     "executor": "powershell",
+     "name": "Dump LSASS.exe using lolbin rdrleakdiag.exe",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "6502c8f0-b775-4dbd-9193-1298f56b6781": {
+     "executor": "powershell",
+     "name": "Dump LSASS.exe Memory using Out-Minidump.ps1",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "66fb0bc1-3c3f-47e9-a298-550ecfefacbc": {
+     "executor": "powershell",
+     "name": "Powershell Mimikatz",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "7ae7102c-a099-45c8-b985-4c7a2d05790d": {
+     "executor": "command_prompt",
+     "name": "Dump LSASS.exe Memory using direct system calls and API unhooking",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "7cede33f-0acd-44ef-9774-15511300b24b": {
+     "executor": "command_prompt",
+     "name": "Create Mini Dump of LSASS.exe using ProcDump",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "86fc3f40-237f-4701-b155-81c01c48d697": {
+     "executor": "powershell",
+     "name": "Dump LSASS.exe using imported Microsoft DLLs",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "9d0072c8-7cca-45c4-bd14-f852cfa35cf0": {
+     "executor": "powershell",
+     "name": "Dump LSASS with createdump.exe from .Net v5",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "c37bc535-5c62-4195-9cc3-0517673171d8": {
+     "executor": "command_prompt",
+     "name": "LSASS read with pypykatz",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "dddd4aca-bbed-46f0-984d-e4c5971c51ea": {
+     "executor": "command_prompt",
+     "name": "Dump LSASS.exe Memory using NanoDump",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "dea6c349-f1c6-44f3-87a1-1ed33a59a607": {
+     "executor": "manual",
+     "name": "Dump LSASS.exe Memory using Windows Task Manager",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "eb5adf16-b601-4926-bca7-dad22adffb37": {
+     "executor": "command_prompt",
+     "name": "Dump LSASS.exe Memory through Silent Process Exit",
+     "platforms": [
+      "windows"
+     ]
+    }
+   }
+  },
+  "T1021.002": {
+   "display_name": "Remote Services: SMB/Windows Admin Shares",
+   "tests": {
+    "0eb03d41-79e4-4393-8e57-6344856be1cf": {
+     "executor": "command_prompt",
+     "name": "Copy and Execute File with PsExec",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "3386975b-367a-4fbb-9d77-4dcf3639ffd3": {
+     "executor": "command_prompt",
+     "name": "Map admin share",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "514e9cd7-9207-4882-98b1-c8f791bae3c5": {
+     "executor": "powershell",
+     "name": "Map Admin Share PowerShell",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "d41aaab5-bdfe-431d-a3d5-c29e9136ff46": {
+     "executor": "command_prompt",
+     "name": "Execute command writing output to local Admin Share",
+     "platforms": [
+      "windows"
+     ]
+    }
+   }
+  },
+  "T1053.005": {
+   "display_name": "Scheduled Task/Job: Scheduled Task",
+   "tests": {
+    "02124c37-767e-4b76-9383-c9fc366d9d4c": {
+     "executor": "command_prompt",
+     "name": "Scheduled Task Persistence via Eventviewer.msc",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "2e5eac3e-327b-4a88-a0c0-c4057039a8dd": {
+     "executor": "command_prompt",
+     "name": "Scheduled task Remote",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "42f53695-ad4a-4546-abb6-7d837f644a71": {
+     "executor": "command_prompt",
+     "name": "Scheduled task Local",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "704333ca-cc12-4bcf-9916-101844881f54": {
+     "executor": "command_prompt",
+     "name": "Scheduled Task (\"Ghost Task\") via Registry Key Manipulation",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "8fcfa3d5-ea7d-4e1c-bd3e-3c4ed315b7d2": {
+     "executor": "command_prompt",
+     "name": "Scheduled Task Persistence via CompMgmt.msc",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "af9fd58f-c4ac-4bf2-a9ba-224b71ff25fd": {
+     "executor": "powershell",
+     "name": "Powershell Cmdlet Scheduled Task",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "cd925593-fbb4-486d-8def-16cbdf944bf4": {
+     "executor": "powershell",
+     "name": "Import XML Schedule Task with Hidden Attribute",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "dda6fc7b-c9a6-4c18-b98d-95ec6542af6d": {
+     "executor": "powershell",
+     "name": "PowerShell Modify A Scheduled Task",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "e16b3b75-dc9e-4cde-a23d-dfa2d0507b3b": {
+     "executor": "powershell",
+     "name": "WMI Invoke-CimMethod Scheduled Task",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "e895677d-4f06-49ab-91b6-ae3742d0a2ba": {
+     "executor": "command_prompt",
+     "name": "Scheduled Task Executing Base64 Encoded Commands From Registry",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "ecd3fa21-7792-41a2-8726-2c5c673414d3": {
+     "executor": "powershell",
+     "name": "Task Scheduler via VBA",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "fec27f65-db86-4c2d-b66c-61945aee87c2": {
+     "executor": "command_prompt",
+     "name": "Scheduled Task Startup Script",
+     "platforms": [
+      "windows"
+     ]
+    }
+   }
+  },
+  "T1059.001": {
+   "display_name": "Command and Scripting Interpreter: PowerShell",
+   "tests": {
+    "06a220b6-7e29-4bd8-9d07-5b4d86742372": {
+     "executor": "command_prompt",
+     "name": "Invoke-AppPathBypass",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "0d181431-ddf3-4826-8055-2dbf63ae848b": {
+     "executor": "powershell",
+     "name": "ATHPowerShellCommandLineParameter -EncodedCommand parameter variations with encoded arguments",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "1289f78d-22d2-4590-ac76-166737e1811b": {
+     "executor": "powershell",
+     "name": "PowerUp Invoke-AllChecks",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "1c0a870f-dc74-49cf-9afc-eccc45e58790": {
+     "executor": "powershell",
+     "name": "ATHPowerShellCommandLineParameter -Command parameter variations with encoded arguments",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "388a7340-dbc1-4c9d-8e59-b75ad8c6d5da": {
+     "executor": "command_prompt",
+     "name": "Powershell MsXml COM object - with prompt",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "4099086c-1470-4223-8085-8186e1ed5948": {
+     "executor": "powershell",
+     "name": "SOAPHound - Build Cache",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "4396927f-e503-427b-b023-31049b9b09a6": {
+     "executor": "command_prompt",
+     "name": "Powershell XML requests",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "49eb9404-5e0f-4031-a179-b40f7be385e3": {
+     "executor": "powershell",
+     "name": "PowerShell Invoke Known Malicious Cmdlets",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "686a9785-f99b-41d4-90df-66ed515f81d7": {
+     "executor": "powershell",
+     "name": "ATHPowerShellCommandLineParameter -Command parameter variations",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "6a5b2a50-d037-4879-bf01-43d4d6cbf73f": {
+     "executor": "powershell",
+     "name": "SOAPHound - Dump BloodHound Data",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "7c1acec2-78fa-4305-a3e0-db2a54cddecd": {
+     "executor": "powershell",
+     "name": "PowerShell Session Creation and Use",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "86a43bad-12e3-4e85-b97c-4d5cf25b95c3": {
+     "executor": "powershell",
+     "name": "ATHPowerShellCommandLineParameter -EncodedCommand parameter variations",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "8a2ad40b-12c7-4b25-8521-2737b0a415af": {
+     "executor": "command_prompt",
+     "name": "Powershell invoke mshta.exe download",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "8e5c5532-1181-4c1d-bb79-b3a9f5dbd680": {
+     "executor": "powershell",
+     "name": "NTFS Alternate Data Stream Access",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "999bff6d-dc15-44c9-9f5c-e1051bfc86e1": {
+     "executor": "powershell",
+     "name": "Abuse Nslookup with DNS Records",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "a21bb23e-e677-4ee7-af90-6931b57b6350": {
+     "executor": "powershell",
+     "name": "Run BloodHound from local disk",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "a538de64-1c74-46ed-aa60-b995ed302598": {
+     "executor": "command_prompt",
+     "name": "PowerShell Command Execution",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "af1800cf-9f9d-4fd1-a709-14b1e6de020d": {
+     "executor": "powershell",
+     "name": "Mimikatz - Cradlecraft PsSendKeys",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "bf8c1441-4674-4dab-8e4e-39d93d08f9b7": {
+     "executor": "powershell",
+     "name": "Run Bloodhound from Memory using Download Cradle",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "cc50fa2a-a4be-42af-a88f-e347ba0bf4d7": {
+     "executor": "manual",
+     "name": "Powershell Invoke-DownloadCradle",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "f3132740-55bc-48c4-bcc0-758a459cd027": {
+     "executor": "command_prompt",
+     "name": "Mimikatz",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "fa050f5e-bc75-4230-af73-b6fd7852cd73": {
+     "executor": "powershell",
+     "name": "PowerShell Fileless Script Execution",
+     "platforms": [
+      "windows"
+     ]
+    }
+   }
+  },
+  "T1071.004": {
+   "display_name": "Application Layer Protocol: DNS",
+   "tests": {
+    "1700f5d6-5a44-487b-84de-bc66f507b0a6": {
+     "executor": "powershell",
+     "name": "DNS Large Query Volume",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "3efc144e-1af8-46bb-8ca2-1376bb6db8b6": {
+     "executor": "powershell",
+     "name": "DNS Regular Beaconing",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "e7bf9802-2e78-4db9-93b5-181b7bcd37d7": {
+     "executor": "powershell",
+     "name": "DNS C2",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "fef31710-223a-40ee-8462-a396d6b66978": {
+     "executor": "powershell",
+     "name": "DNS Long Domain Query",
+     "platforms": [
+      "windows"
+     ]
+    }
+   }
+  },
+  "T1105": {
+   "display_name": "Ingress Tool Transfer",
+   "tests": {
+    "0139dba1-f391-405e-a4f5-f3989f2c88ef": {
+     "executor": "sh",
+     "name": "sftp remote file copy (pull)",
+     "platforms": [
+      "linux",
+      "macos"
+     ]
+    },
+    "0fc6e977-cb12-44f6-b263-2824ba917409": {
+     "executor": "sh",
+     "name": "rsync remote file copy (push)",
+     "platforms": [
+      "linux",
+      "macos"
+     ]
+    },
+    "1a02df58-09af-4064-a765-0babe1a0d1e2": {
+     "executor": "powershell",
+     "name": "Download a file with IMEWDBLD.exe",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "205e676e-0401-4bae-83a5-94b8c5daeb22": {
+     "executor": "powershell",
+     "name": "Windows push file using sftp.exe",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "2a4b0d29-e5dd-4b66-b729-07423ba1cd9d": {
+     "executor": "powershell",
+     "name": "Windows push file using scp.exe",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "2b080b99-0deb-4d51-af0f-833d37c4ca6a": {
+     "executor": "command_prompt",
+     "name": "Curl Download File",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "2ca61766-b456-4fcf-a35a-1233685e1cad": {
+     "executor": "command_prompt",
+     "name": "OSTAP Worming Activity",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "3180f7d5-52c0-4493-9ea0-e3431a84773f": {
+     "executor": "sh",
+     "name": "rsync remote file copy (pull)",
+     "platforms": [
+      "linux",
+      "macos"
+     ]
+    },
+    "3d25f1f2-55cb-4a41-a523-d17ad4cfba19": {
+     "executor": "powershell",
+     "name": "Windows pull file using sftp.exe",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "3dd6a6cf-9c78-462c-bd75-e9b54fc8925b": {
+     "executor": "powershell",
+     "name": "Download a file with OneDrive Standalone Updater",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "401667dc-05a6-4da0-a2a7-acfe4819559c": {
+     "executor": "powershell",
+     "name": "Windows pull file using scp.exe",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "42dc4460-9aa6-45d3-b1a6-3955d34e1fe8": {
+     "executor": "powershell",
+     "name": "Windows - PowerShell Download",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "49845fc1-7961-4590-a0f0-3dbcf065ae7e": {
+     "executor": "command_prompt",
+     "name": "Printer Migration Command-Line Tool UNC share folder into a zip file",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "54782d65-12f0-47a5-b4c1-b70ee23de6df": {
+     "executor": "command_prompt",
+     "name": "Lolbas replace.exe use to copy file",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "54a4daf1-71df-4383-9ba7-f1a295d8b6d2": {
+     "executor": "powershell",
+     "name": "File Download via PowerShell",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "5bcefe5f-3f30-4f1c-a61a-8d7db3f4450c": {
+     "executor": "sh",
+     "name": "File download via nscurl",
+     "platforms": [
+      "macos"
+     ]
+    },
+    "5f507e45-8411-4f99-84e7-e38530c45d01": {
+     "executor": "command_prompt",
+     "name": "File download with finger.exe on Windows",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "635c9a38-6cbf-47dc-8615-3810bc1167cf": {
+     "executor": "command_prompt",
+     "name": "Curl Upload File",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "66ee226e-64cb-4dae-80e3-5bf5763e4a51": {
+     "executor": "command_prompt",
+     "name": "Arbitrary file download using the Notepad++ GUP.exe binary",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "6934c16e-0b3a-4e7f-ab8c-c414acd32181": {
+     "executor": "powershell",
+     "name": "File Download with Sqlcmd.exe",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "6fdaae87-c05b-42f8-842e-991a74e8376b": {
+     "executor": "command_prompt",
+     "name": "certreq download",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "70f4d07c-5c3e-4d53-bb0a-cdf3ada14baf": {
+     "executor": "powershell",
+     "name": "MAZE Propagation Script",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "7e2ad0db-1efa-4af2-a77c-bc6e87d7b3f3": {
+     "executor": "bash",
+     "name": "Curl Insecure Connection from a Pod",
+     "platforms": [
+      "containers"
+     ]
+    },
+    "815bef8b-bf91-4b67-be4c-abe4c2a94ccc": {
+     "executor": "command_prompt",
+     "name": "Download a File with Windows Defender MpCmdRun.exe",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "83a49600-222b-4866-80a0-37736ad29344": {
+     "executor": "sh",
+     "name": "scp remote file copy (push)",
+     "platforms": [
+      "linux",
+      "macos"
+     ]
+    },
+    "97116a3f-efac-4b26-8336-b9cb18c45188": {
+     "executor": "command_prompt",
+     "name": "Download a file using wscript",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "a1921cd3-9a2d-47d5-a891-f1d0f2a7a31b": {
+     "executor": "command_prompt",
+     "name": "Windows - BITSAdmin BITS Download",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "b1729c57-9384-4d1c-9b99-9b220afb384e": {
+     "executor": "command_prompt",
+     "name": "Nimgrab - Transfer Files",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "b9d22b9a-9778-4426-abf0-568ea64e9c33": {
+     "executor": "sh",
+     "name": "scp remote file copy (pull)",
+     "platforms": [
+      "linux",
+      "macos"
+     ]
+    },
+    "bdc373c5-e9cf-4563-8a7b-a9ba720a90f3": {
+     "executor": "sh",
+     "name": "Linux Download File and Run",
+     "platforms": [
+      "linux"
+     ]
+    },
+    "c01cad7f-7a4c-49df-985e-b190dcf6a279": {
+     "executor": "command_prompt",
+     "name": "iwr or Invoke Web-Request download",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "c82b1e60-c549-406f-9b00-0a8ae31c9cfe": {
+     "executor": "command_prompt",
+     "name": "Remote File Copy using PSCP",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "c99a829f-0bb8-4187-b2c6-d47d1df74cab": {
+     "executor": "sh",
+     "name": "whois file download",
+     "platforms": [
+      "linux",
+      "macos"
+     ]
+    },
+    "d239772b-88e2-4a2e-8473-897503401bcc": {
+     "executor": "command_prompt",
+     "name": "Download a file with Microsoft Connection Manager Auto-Download",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "dd3b61dd-7bbc-48cd-ab51-49ad1a776df0": {
+     "executor": "command_prompt",
+     "name": "certutil download (urlcache)",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "ed0335ac-0354-400c-8148-f6151d20035a": {
+     "executor": "command_prompt",
+     "name": "Lolbas replace.exe use to copy UNC file",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "f564c297-7978-4aa9-b37a-d90477feea4e": {
+     "executor": "bash",
+     "name": "sftp remote file copy (push)",
+     "platforms": [
+      "linux",
+      "macos"
+     ]
+    },
+    "fa5a2759-41d7-4e13-a19c-e8f28a53566f": {
+     "executor": "command_prompt",
+     "name": "svchost writing a file to a UNC path",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "ffd492e3-0455-4518-9fb1-46527c9f241b": {
+     "executor": "powershell",
+     "name": "certutil download (verifyctl)",
+     "platforms": [
+      "windows"
+     ]
+    }
+   }
+  },
+  "T1685.005": {
+   "display_name": "Disable or Modify Tools: Clear Windows Event Logs",
+   "tests": {
+    "1b682d84-f075-4f93-9a89-8a8de19ffd6e": {
+     "executor": "powershell",
+     "name": "Clear Event Logs via VBA",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "b13e9306-3351-4b4b-a6e8-477358b0b498": {
+     "executor": "powershell",
+     "name": "Delete System Logs Using Clear-EventLog",
+     "platforms": [
+      "windows"
+     ]
+    },
+    "e6abb60e-26b8-41da-8aae-0c35174b0967": {
+     "executor": "command_prompt",
+     "name": "Clear Logs",
+     "platforms": [
+      "windows"
+     ]
+    }
+   }
+  }
+ }
+}
