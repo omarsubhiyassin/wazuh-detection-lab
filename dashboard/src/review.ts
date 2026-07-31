@@ -49,6 +49,3 @@ export function reviewOf(alert: Alert): Review {
   }
   return { key: "untriaged", label: "—", detail: "Not flagged, not triaged." };
 }
-
-/** True when the AI has flagged something no human has looked at yet. */
-export const awaitingReview = (a: Alert) => reviewOf(a).key === "ai-awaiting";

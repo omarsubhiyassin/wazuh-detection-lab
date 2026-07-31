@@ -154,19 +154,64 @@ app.get("/api/stats", async (req, res) => {
         maxLevel: Math.round(b.max_level.value ?? 0),
         lastSeen: b.last_seen.value_as_string ?? null,
       })),
-      // Global triage queue (from the BFF store, not the indexer).
+      // Global triage queue (from the BFF store, not the indexer). These are
+      // whole-store counts and are deliberately NOT narrowed by the current
+      // filters — the queue is "everything outstanding", not "outstanding on
+      // this page".
       triageCounts: triage.counts(),
+      aiAwaiting: resolveIdFilter({ ai: "awaiting" })?.length ?? 0,
     });
   } catch (e) {
     res.status(502).json({ error: String(e) });
   }
 });
 
+// Triage state and AI findings live on the BFF, not in the indexer, so they
+// cannot be expressed as a query clause. Resolve them to alert ids here and
+// push those into the indexer query instead — otherwise the filter only ever
+// applies to whichever page the browser already loaded, and "closed alerts"
+// silently means "closed alerts among the most recent 500".
+//
+// Returns null when no such filter is requested, or an array (possibly EMPTY —
+// which must yield zero results, not every result).
+const ID_FILTER_CAP = 1024;
+
+function resolveIdFilter(q) {
+  const sets = [];
+
+  if (q.triage && triage.STATUSES.includes(q.triage)) {
+    sets.push(triage.idsByStatus(q.triage));
+  }
+
+  if (q.ai === "flagged" || q.ai === "awaiting") {
+    const flagged = analysis.flaggedIds();
+    if (q.ai === "flagged") sets.push(flagged);
+    else {
+      // "Awaiting human review" = the AI flagged it and no human has moved it
+      // past `new`. Mirrors reviewOf() in the SPA; kept here so the queue is a
+      // real queue rather than a view of one page.
+      const byId = triage.getMany(flagged);
+      sets.push(flagged.filter((id) => !byId[id] || byId[id].status === "new"));
+    }
+  }
+
+  if (!sets.length) return null;
+  const ids = sets.reduce((acc, s) => acc.filter((id) => s.includes(id)));
+  return ids.slice(0, ID_FILTER_CAP);
+}
+
 app.get("/api/alerts", async (req, res) => {
   const size = Math.min(Number(req.query.size || 100), 500);
+  const idFilter = resolveIdFilter(req.query);
+  // An empty id set means "nothing matches" — never fall through to unfiltered.
+  if (idFilter && idFilter.length === 0) {
+    return res.json({ total: 0, alerts: [] });
+  }
+  const query = buildQuery(req.query);
+  if (idFilter) query.bool.filter.push({ ids: { values: idFilter } });
   const body = {
     size,
-    query: buildQuery(req.query),
+    query,
     sort: [{ timestamp: "desc" }],
     _source: ["timestamp", "rule.id", "rule.level", "rule.description", "rule.groups",
       "rule.mitre", "agent.name", "agent.ip", "location", "full_log", "data", "decoder.name"],
@@ -295,6 +340,23 @@ app.get("/api/analysis", (_req, res) => {
 app.get("/api/audit", requireRole("admin"), (req, res) => {
   res.json({ events: audit.readRecent(Math.min(Number(req.query.limit || 200), 1000)) });
 });
+
+// --- Triage housekeeping ------------------------------------------------------
+// Open records whose alert has aged out of the indexer can never be actioned,
+// and until removed they inflate the queue counts — the sidebar would report
+// work that no longer exists. Closed records are kept (they are the efficacy
+// history) unless DASH_CLOSED_RETENTION_DAYS is set. Run at start and daily;
+// the result is audited because it deletes workflow records.
+function pruneTriage(reason) {
+  const summary = triage.prune();
+  if (summary.orphaned || summary.expired) {
+    console.log(`[dashboard] triage prune (${reason}):`, JSON.stringify(summary));
+    audit.record({ action: "triage_prune", user: "system", reason, ...summary });
+  }
+  return summary;
+}
+pruneTriage("startup");
+setInterval(() => pruneTriage("scheduled"), 24 * 3600_000).unref();
 
 // --- Static SPA (production) --------------------------------------------------
 const distDir = path.join(__dirname, "..", "dist");

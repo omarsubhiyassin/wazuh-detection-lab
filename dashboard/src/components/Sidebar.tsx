@@ -130,7 +130,8 @@ export function Sidebar({
           </button>
         )}
         <p className="rail-note">
-          Counts are all triaged alerts. Filtering applies to the alerts loaded below.
+          Counts cover every triaged alert, and selecting one filters the whole
+          result set — not just the page loaded below.
         </p>
       </div>
     </aside>

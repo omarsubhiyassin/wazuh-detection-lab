@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Alert, AnalysisConfig, Coverage, Filters, Session, Stats, TriageState, TriageStatus } from "./types";
+import type { Alert, AnalysisConfig, Coverage, Filters, Session, Stats, TriageState } from "./types";
 import { getAlerts, getAnalysis, getCoverage, getSession, getStats, logout, runAnalysis, HttpError } from "./api";
-import { awaitingReview } from "./review";
 import { AttackMatrix } from "./components/AttackMatrix";
 import { AlertTable } from "./components/AlertTable";
 import { AlertDrawer } from "./components/AlertDrawer";
@@ -44,15 +43,11 @@ export function App() {
   const [selected, setSelected] = useState<Alert | null>(null);
   const [showAudit, setShowAudit] = useState(false);
   const [showMetrics, setShowMetrics] = useState(false);
-  // Client-side filter over the loaded alert page (triage state lives in the
-  // BFF store, not the indexer, so it can't be part of the indexer query).
-  const [triageFilter, setTriageFilter] = useState<TriageStatus | null>(null);
   // AI advisory layer: config for the sidebar copy, a queue filter, and a
   // manual run trigger. Analysis is explicitly operator-triggered rather than
   // automatic — a pass has a cost (and, with the LLM on, a per-alert API call).
   const [aiConfig, setAiConfig] = useState<AnalysisConfig | undefined>(undefined);
   const [coverage, setCoverage] = useState<Coverage | undefined>(undefined);
-  const [aiFilter, setAiFilter] = useState(false);
   const [running, setRunning] = useState(false);
   const [runNote, setRunNote] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -118,22 +113,16 @@ export function App() {
 
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
 
-  const awaitingCount = useMemo(
-    () => data.alerts.filter(awaitingReview).length,
-    [data.alerts],
+  // Triage and AI filtering now happen server-side (see resolveIdFilter in
+  // server/index.js), so the feed is already the full matching set. The only
+  // client-side shaping left: the AI queue is a review queue, so it reads in
+  // suggested-priority order rather than newest-first.
+  const visibleAlerts = useMemo(
+    () => (filters.ai
+      ? [...data.alerts].sort((a, b) => (a.ai?.priority ?? 0) - (b.ai?.priority ?? 0))
+      : data.alerts),
+    [data.alerts, filters.ai],
   );
-
-  const visibleAlerts = useMemo(() => {
-    // The AI queue is a review queue, so it sorts by suggested priority rather
-    // than by time; every other view stays newest-first.
-    if (aiFilter) {
-      return data.alerts.filter(awaitingReview)
-        .sort((a, b) => (a.ai?.priority ?? 0) - (b.ai?.priority ?? 0));
-    }
-    return triageFilter
-      ? data.alerts.filter((a) => a.triage?.status === triageFilter)
-      : data.alerts;
-  }, [data.alerts, triageFilter, aiFilter]);
 
   if (session === undefined) return null; // session check in flight
   if (session === null) return <Login onLogin={setSession} />;
@@ -179,13 +168,13 @@ export function App() {
       <div className="shell">
       <Sidebar
         filters={filters}
-        onView={(patch) => { setTriageFilter(null); setAiFilter(false); set(patch); }}
+        onView={(patch) => set({ triage: undefined, ai: undefined, ...patch })}
         triageCounts={stats?.triageCounts}
-        triageFilter={triageFilter}
-        onTriageFilter={(s) => { setAiFilter(false); setTriageFilter(s); }}
-        aiFilter={aiFilter}
-        onAiFilter={(on) => { setTriageFilter(null); setAiFilter(on); }}
-        awaitingCount={awaitingCount}
+        triageFilter={filters.triage ?? null}
+        onTriageFilter={(s) => set({ triage: s ?? undefined, ai: undefined })}
+        aiFilter={filters.ai === "awaiting"}
+        onAiFilter={(on) => set({ ai: on ? "awaiting" : undefined, triage: undefined })}
+        awaitingCount={stats?.aiAwaiting ?? 0}
         canRun={session.role !== "viewer"}
         running={running}
         onRun={analyze}
@@ -221,11 +210,11 @@ export function App() {
 
       <AlertTable
         alerts={visibleAlerts}
-        total={triageFilter || aiFilter ? visibleAlerts.length : data.total}
+        total={data.total}
         loading={loading}
         onSelect={setSelected}
-        note={aiFilter ? "AI-flagged · awaiting human review"
-          : triageFilter ? `triage: ${triageFilter}` : undefined}
+        note={filters.ai ? "AI-flagged · awaiting human review"
+          : filters.triage ? `triage: ${filters.triage}` : undefined}
       />
       </div>
 

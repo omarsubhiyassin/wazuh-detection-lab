@@ -133,7 +133,10 @@ export interface Stats {
   byTechnique: TechniqueStat[];
   overTime: { t: number; count: number }[];
   byAgent: AgentStat[];
+  /** Whole-store queue counts — not narrowed by the current filters. */
   triageCounts: Record<TriageStatus, number>;
+  /** AI-flagged alerts no human has moved past "new", across the whole store. */
+  aiAwaiting: number;
 }
 
 // --- Detection efficacy metrics ---------------------------------------------
@@ -219,4 +222,11 @@ export interface Filters {
   minLevel?: number;
   host?: string;
   search?: string;
+  /**
+   * Triage/AI filters. Resolved to alert ids server-side and pushed into the
+   * indexer query, so they cover every matching alert rather than only the page
+   * already loaded. They are not indexer fields, so /api/stats ignores them.
+   */
+  triage?: TriageStatus;
+  ai?: "flagged" | "awaiting";
 }

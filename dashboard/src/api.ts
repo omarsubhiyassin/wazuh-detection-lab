@@ -17,6 +17,8 @@ function qs(f: Filters): string {
   if (f.minLevel) p.set("minLevel", String(f.minLevel));
   if (f.host) p.set("host", f.host);
   if (f.search) p.set("search", f.search);
+  if (f.triage) p.set("triage", f.triage);
+  if (f.ai) p.set("ai", f.ai);
   return p.toString();
 }
 

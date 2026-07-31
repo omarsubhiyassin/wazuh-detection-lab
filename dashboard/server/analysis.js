@@ -87,6 +87,14 @@ export function getMany(ids) {
   return out;
 }
 
+/**
+ * Ids the last pass flagged. Used to push the AI queue filter into the indexer
+ * query rather than filtering whichever page the browser loaded.
+ */
+export function flaggedIds() {
+  return Object.entries(findings).filter(([, f]) => f?.flagged).map(([id]) => id);
+}
+
 /** Every stored finding, newest analysis first. */
 export function all() {
   return Object.entries(findings)

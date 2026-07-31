@@ -41,6 +41,45 @@ npm run dev
 npm run build && npm start   # open http://localhost:8787
 ```
 
+## Triage record identity and lifetime
+
+Triage state lives on the BFF, not the indexer — alerts stay strictly read-only. Records
+are keyed by the alert's OpenSearch `_id`, which only means something while that alert's
+index exists, and ISM deletes indices on the retention schedule. That creates two failure
+modes pulling in opposite directions:
+
+- **Keep everything** → open records point at alerts nobody can open, and they keep
+  inflating the sidebar queue. The counts start lying about outstanding work.
+- **Delete on age** → the efficacy history is destroyed, because closed records *are* the
+  measurement.
+
+So the prune is asymmetric. **Open** records whose alert has aged out (`DASH_ALERT_RETENTION_DAYS`,
+default 30 — keep in sync with `ALERTS_RETENTION_DAYS`) are dropped. **Closed** records are
+kept indefinitely by default and stay attributable to their rule without the alert, thanks
+to the denormalized `context` block; set `DASH_CLOSED_RETENTION_DAYS` if you want them to
+expire. A record with **no** `alertTs` is never aged out on a guess. Pruning runs at startup
+and daily, and is written to the audit log because it deletes workflow records.
+
+Growth is therefore bounded by how fast humans close things, not by alert volume — which is
+the property that actually matters.
+
+Records also carry a schema version, so a store written by an older build is migrated on
+read rather than special-cased forever. Migration **never invents facts**: a legacy record
+gets `disposition: null` and `context: null` rather than a fabricated outcome that would
+corrupt the efficacy numbers.
+
+### Triage and AI filters are server-side
+
+Triage status and AI findings can't be expressed as an indexer query clause, so
+`/api/alerts?triage=<status>` and `?ai=flagged|awaiting` resolve them to alert ids on the
+BFF and push those into the query as an `ids` clause. Previously these filtered only the
+page the browser had already loaded — "closed alerts" silently meant "closed alerts among
+the most recent 500 of 8,227". An empty id set correctly yields **zero** results rather
+than falling through to unfiltered.
+
+Queue counts in the sidebar are whole-store totals and are deliberately *not* narrowed by
+the current filters — the queue is "everything outstanding", not "outstanding on this page".
+
 ## ATT&CK coverage vs activity
 
 A heatmap coloured by alert count renders two opposite situations identically: a technique
@@ -121,7 +160,7 @@ truth*, they only cover alerts someone actually triaged, and a rate stays `null`
 npm test        # node:test, no test framework dependency
 ```
 
-71 tests over `tests/`, run in CI on every dashboard change
+82 tests over `tests/`, run in CI on every dashboard change
 ([dashboard-ci.yml](../.github/workflows/dashboard-ci.yml)). They exist to protect
 **security invariants that are otherwise only claims in comments**:
 
@@ -161,7 +200,7 @@ each make the suite fail. A test that cannot fail protects nothing.
 | `GET /api/auth/session` | current user, or 401 |
 | `GET /api/health` | indexer reachable + alert count |
 | `GET /api/stats?range&technique&minLevel&host&search` | totals, by-level, by-technique (+maxLevel/tactic), activity histogram |
-| `GET /api/alerts?…&size` | recent alerts (id + `_source` + triage + AI finding) for the feed/drawer |
+| `GET /api/alerts?…&size&triage&ai` | recent alerts (id + `_source` + triage + AI finding); `triage`/`ai` filter the whole result set, not the loaded page |
 | `POST /api/alerts/:id/triage` | set status/assignee/note/AI verdict — **analyst+** |
 | `POST /api/analysis/run` | score the current filter window, store advisory findings — **analyst+** |
 | `GET /api/analysis` | current findings + the scoring configuration |
