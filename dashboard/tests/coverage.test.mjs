@@ -75,6 +75,25 @@ test("a commented-out rule is not coverage", () => {
   assert.equal(c.ruleCount, 1);
 });
 
+test("recalibrating a vendor rule is not coverage we can claim", () => {
+  // An overwrite carries the vendor's own <mitre> block. Counting it would
+  // report a severity change as a detection we authored.
+  const c = parse(`
+    <rule id="92213" level="10" overwrite="yes">
+      <if_group>sysmon_event_11</if_group>
+      <description>Executable file dropped in folder commonly used by malware</description>
+      <mitre><id>T1105</id></mitre>
+    </rule>
+    <rule id="100310" level="12">
+      <description>ours</description>
+      <mitre><id>T1105</id></mitre>
+    </rule>
+  `);
+  assert.deepEqual(c.byTechnique.T1105.map((r) => r.id), ["100310"]);
+  assert.equal(c.ruleCount, 1);
+  assert.equal(c.detectionCount, 1);
+});
+
 test("a technique named only in prose is not a mapping", () => {
   const c = parse(`
     <rule id="100999" level="10">

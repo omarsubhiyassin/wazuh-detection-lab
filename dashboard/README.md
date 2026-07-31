@@ -104,8 +104,12 @@ On the current lab that reclassifies **five** techniques (T1070.001, T1003.001, 
 T1021.002, T1071.004) from apparent blind spots to *covered · quiet*. The `N★` badge is how
 many of our detections map to that technique; hovering lists them by rule ID and level.
 
-Two deliberate choices:
+Three deliberate choices:
 
+- **A vendor rule we merely recalibrated is not our coverage.** Rules declared
+  `overwrite="yes"` carry the vendor's own `<mitre>` block; counting them would report a
+  severity change as a detection we authored — the exact self-flattery this view exists to
+  prevent.
 - **A commented-out rule is not coverage.** Comments are stripped before parsing — believing
   a disabled detection protects you is the dangerous direction of this error.
 - **If the ruleset cannot be read, coverage is `unknown`, not "none".** Every cell greys out

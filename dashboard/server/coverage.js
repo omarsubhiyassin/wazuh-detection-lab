@@ -44,6 +44,11 @@ export function parse(xml) {
     const body = m[2];
     const id = /\bid\s*=\s*"([^"]+)"/.exec(attrs)?.[1];
     if (!id) continue;
+    // `overwrite="yes"` re-declares a VENDOR rule to recalibrate its severity.
+    // It carries the vendor's <mitre> block, so counting it would inflate "our
+    // coverage" with detections we did not write — the exact self-flattery this
+    // view exists to prevent.
+    if (/\boverwrite\s*=\s*"yes"/i.test(attrs)) continue;
     const level = Number(/\blevel\s*=\s*"([^"]+)"/.exec(attrs)?.[1] ?? 0);
     const description = /<description>([\s\S]*?)<\/description>/.exec(body)?.[1]?.trim() ?? "";
     rules.push({ id, level });

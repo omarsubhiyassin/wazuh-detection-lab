@@ -323,6 +323,41 @@
 ========================================================================== -->
 <group name="detection_lab,tuning,windows,">
 
+  <!-- SEVERITY RECALIBRATION of vendor rule 92213 (was level 15).
+       Level 15 is Wazuh's "severe attack" band and sits above NOTIFY_MIN_LEVEL
+       (12), so every hit paged Slack. After 100800 removes the PowerShell probe
+       noise, what remains is legitimate software writing executables to %TEMP% —
+       Docker/Brave/Steam updaters, installers — measured at ~110 per 30 days.
+       Those are benign TRUE positives: the rule is right, the activity is
+       authorized. They deserve to stay visible and investigable, but they are
+       not a reason to page a human at 3-4 alerts a day.
+
+       Level 10 keeps it in the dashboard's "high (8-11)" band, above AI_MIN_LEVEL
+       (8) so the triage scorer still ranks it, and above the score threshold once
+       repetition is factored in — while stopping the paging.
+
+       DELIBERATELY NOT SUPPRESSED: "an executable appeared in %TEMP%" is exactly
+       how a real dropper looks. Silencing it to fix alert fatigue would trade a
+       noisy detection for no detection.
+
+       MAINTENANCE COST (accepted): `overwrite` pins a COPY of the vendor
+       condition here, so an upstream change to 92213 will not reach us — this
+       block must be re-checked when the Wazuh ruleset is bumped. The condition
+       below is copied verbatim from
+       ruleset/rules/0830-sysmon_id_11.xml; note its `\\\\`, which is what the
+       eventchannel decoder's doubled backslashes actually require. Overwriting
+       (rather than adding a lower-level child) keeps the alert's rule ID at
+       92213, so the efficacy history and ATT&CK mapping stay continuous. -->
+  <rule id="92213" level="10" overwrite="yes">
+    <if_group>sysmon_event_11</if_group>
+    <field name="win.eventdata.targetFilename" type="pcre2">(?i)[c-z]:\\\\Users\\\\.+\\\\AppData\\\\Local\\\\Temp\\\\.+\.(exe|com|dll|vbs|js|bat|cmd|pif|wsh|ps1|msi|vbe)</field>
+    <options>no_full_log</options>
+    <description>Executable file dropped in folder commonly used by malware</description>
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+  </rule>
+
   <!-- Vendor rule 92213 ("Executable file dropped in folder commonly used by
        malware", level 15) matches ANY of exe|dll|ps1|bat|... written under
        %LOCALAPPDATA%\Temp. PowerShell writes a script-policy probe file there
