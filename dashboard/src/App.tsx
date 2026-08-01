@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Alert, AnalysisConfig, Coverage, Filters, Session, Stats, TriageState } from "./types";
-import { getAlerts, getAnalysis, getCoverage, getSession, getStats, logout, runAnalysis, HttpError } from "./api";
+import type { Alert, AnalysisConfig, Coverage, Filters, Group, Session, Stats, TriageState } from "./types";
+import { getAlerts, getAnalysis, getCoverage, getGroups, getSession, getStats, logout, runAnalysis, HttpError } from "./api";
 import { AttackMatrix } from "./components/AttackMatrix";
 import { AlertTable } from "./components/AlertTable";
 import { AlertDrawer } from "./components/AlertDrawer";
@@ -12,6 +12,11 @@ import { Login } from "./components/Login";
 import { TECHNIQUES } from "./attack";
 
 const RANGES = ["1h", "24h", "7d", "30d", "all"];
+
+/** "sec-team" -> "Sec Team" for the switcher; membership stays keyed by the raw name. */
+function titleize(name: string): string {
+  return name.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 function sumLevels(stats: Stats | null, lo: number, hi: number): number {
   if (!stats) return 0;
@@ -48,6 +53,9 @@ export function App() {
   // automatic — a pass has a cost (and, with the LLM on, a per-alert API call).
   const [aiConfig, setAiConfig] = useState<AnalysisConfig | undefined>(undefined);
   const [coverage, setCoverage] = useState<Coverage | undefined>(undefined);
+  // Team switcher source. Empty when the manager API is unset/unreachable — the
+  // switcher then hides and the view stays "All".
+  const [teams, setTeams] = useState<Group[]>([]);
   const [running, setRunning] = useState(false);
   const [runNote, setRunNote] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -62,6 +70,9 @@ export function App() {
     // Coverage is static per deploy, so fetch once. On failure it stays
     // undefined and the matrix reports coverage as unknown rather than absent.
     getCoverage().then(setCoverage).catch(() => { /* non-fatal */ });
+    // Team groups from the manager API. On failure the switcher simply doesn't
+    // appear — graceful fallback to All, never a crash.
+    getGroups().then((g) => setTeams(g.groups)).catch(() => setTeams([]));
   }, [session]);
 
   useEffect(() => {
@@ -75,7 +86,12 @@ export function App() {
         if (!live) return;
         // Session expired mid-use: drop back to the login screen.
         if (e instanceof HttpError && e.status === 401) setSession(null);
-        else setError(String(e));
+        // Group membership went unavailable (manager API down) while a team was
+        // selected: fall back to All rather than showing a stuck error.
+        else if (e instanceof HttpError && e.status === 503 && filters.group) {
+          setError("Team filtering is unavailable (manager API). Showing All.");
+          setFilters((f) => ({ ...f, group: undefined }));
+        } else setError(String(e));
       })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
@@ -134,6 +150,17 @@ export function App() {
           <span className="dot" /> Detection Lab <span className="muted">— ATT&CK Dashboard</span>
         </div>
         <div className="controls">
+          {teams.length > 0 && (
+            <label>Team
+              <select value={filters.group ?? ""}
+                onChange={(e) => set({ group: e.target.value || undefined })}>
+                <option value="">All</option>
+                {teams.map((t) => (
+                  <option key={t.name} value={t.name}>{titleize(t.name)} ({t.count})</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label>Range
             <select value={filters.range} onChange={(e) => set({ range: e.target.value })}>
               {RANGES.map((r) => <option key={r} value={r}>{r}</option>)}

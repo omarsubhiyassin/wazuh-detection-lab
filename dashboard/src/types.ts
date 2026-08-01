@@ -229,4 +229,16 @@ export interface Filters {
    */
   triage?: TriageStatus;
   ai?: "flagged" | "awaiting";
+  /**
+   * Team filter: a Wazuh agent group name. Resolved to that group's agent names
+   * on the BFF (membership lives on the manager, not in alerts) and applied to
+   * both alerts and stats. Convenience only — not access control.
+   */
+  group?: string;
+}
+
+/** A Wazuh agent group, for the team switcher. */
+export interface Group {
+  name: string;
+  count: number;
 }

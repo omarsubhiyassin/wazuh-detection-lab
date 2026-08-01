@@ -78,6 +78,13 @@ services:
       # techniques we actually have detections for, separately from which ones
       # produced alerts.
       - DASH_RULES_FILE=/app/rules/local_rules.xml
+      # Manager API, over the compose network (NOT the host-exposed port), for
+      # agent-group membership behind the team switcher. Read-only use. The
+      # 127.0.0.1:55000 host binding above is untouched — this reaches the
+      # manager by service name, same as the indexer.
+      - WAZUH_API_URL=https://wazuh.manager:55000
+      - WAZUH_API_USER=${API_USERNAME:-wazuh-wui}
+      - WAZUH_API_PASSWORD=${API_PASSWORD:-MyS3cr37P450r.*-}
     volumes:
       - ${DETECTION_LAB_ROOT}/dashboard/certs:/certs:ro
       - ${DETECTION_LAB_ROOT}/dashboard/state:/app/state

@@ -125,6 +125,31 @@ silently report the whole lab as uncovered.
 The file is bind-mounted read-only into the dashboard container and re-read on mtime
 change, so `deploy-rules.sh` updates coverage without a restart.
 
+## Team filtering (agent groups)
+
+A **Team** switcher scopes the whole view — tiles, matrix, and feed — to one Wazuh
+agent group (Sec Team, Network Team, Dev Team, …). See
+[docs/multi-endpoint.md](../docs/multi-endpoint.md) for enrolling real PCs into groups.
+
+The wrinkle: **alerts don't carry the agent's group** — only `{id, name, ip}`. The group
+lives on the manager. So [server/groups.js](server/groups.js) asks the **manager API**
+which agents are in a group, then the alert/stats queries filter by those agent *names*,
+server-side (the same resolve-to-a-set → push-into-the-query pattern as the triage/AI
+queues, so it covers every matching alert, not just the loaded page). An empty or unknown
+group yields **zero** results, never everything.
+
+Failure posture: if the manager API is unset or unreachable, `list()` returns empty and the
+switcher **hides** (view stays "All"); a group filter that can't be resolved returns **503**
+so the UI falls back to All rather than silently leaking every host's alerts under a team
+label. "Down" is kept distinct from "empty" throughout.
+
+This is a **convenience filter, not access control** — any authenticated user can switch
+teams; it does not restrict what a role may see. Per-team RBAC isolation is a separate,
+larger feature, deliberately not built here.
+
+Config: `WAZUH_API_URL` / `WAZUH_API_USER` / `WAZUH_API_PASSWORD` (read-only manager API
+use; injected from `infra/.env` in the container). Unset ⇒ feature disabled.
+
 ## Detection efficacy metrics
 
 Closes the loop the rest of the app opens: rules produce alerts → analysts triage them →
@@ -166,7 +191,7 @@ truth*, they only cover alerts someone actually triaged, and a rate stays `null`
 npm test        # node:test, no test framework dependency
 ```
 
-82 tests over `tests/`, run in CI on every dashboard change
+92 tests over `tests/`, run in CI on every dashboard change
 ([dashboard-ci.yml](../.github/workflows/dashboard-ci.yml)). They exist to protect
 **security invariants that are otherwise only claims in comments**:
 
@@ -212,6 +237,8 @@ each make the suite fail. A test that cannot fail protects nothing.
 | `GET /api/analysis` | current findings + the scoring configuration |
 | `GET /api/metrics` | detection efficacy: per-rule FP rate, timings, scorer agreement |
 | `GET /api/coverage` | which ATT&CK techniques our own ruleset covers |
+| `GET /api/groups` | Wazuh agent groups + counts, for the team switcher |
+| `GET /api/alerts?…&group=` / `GET /api/stats?…&group=` | scope to a team's hosts (resolved via the manager API) |
 | `GET /api/audit` | recent audit events — **admin only** |
 
 All endpoints except `/api/auth/*` require a signed-in session (401 otherwise).

@@ -14,6 +14,7 @@ import * as triage from "./triage.js";
 import * as analysis from "./analysis.js";
 import * as metrics from "./metrics.js";
 import * as coverage from "./coverage.js";
+import * as groups from "./groups.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -67,13 +68,16 @@ function rangeFilter(range) {
   return [{ range: { timestamp: { gte: `now-${range}` } } }];
 }
 
-/** Assemble the bool query used by the alerts + stats endpoints. */
-function buildQuery(q) {
+/** Assemble the bool query used by the alerts + stats endpoints.
+ *  `groupAgents`, when given, scopes results to a team's hosts (see
+ *  resolveGroup): an empty array yields zero results, never everything. */
+function buildQuery(q, groupAgents = null) {
   const must = [];
   const filter = [...rangeFilter(q.range)];
   if (q.technique) filter.push({ term: { "rule.mitre.id": q.technique } });
   if (q.host) filter.push({ term: { "agent.name": q.host } });
   if (q.minLevel) filter.push({ range: { "rule.level": { gte: Number(q.minLevel) } } });
+  if (groupAgents) filter.push({ terms: { "agent.name": groupAgents } });
   if (q.search) {
     must.push({
       simple_query_string: {
@@ -84,6 +88,23 @@ function buildQuery(q) {
     });
   }
   return { bool: { must: must.length ? must : [{ match_all: {} }], filter } };
+}
+
+/**
+ * Resolve a `group` query param to the agent names to scope by. Group
+ * membership lives on the manager, not in the alerts, so this asks groups.js.
+ *   { agents: null }        — no group requested; don't scope
+ *   { agents: [name,...] }  — scope to these (empty array => zero results)
+ *   { error: 503 }          — a group was requested but membership is
+ *                             unavailable (API down/disabled); the caller must
+ *                             NOT fall back to unscoped, or it would leak other
+ *                             teams' alerts under a team label.
+ */
+async function resolveGroup(q) {
+  if (!q.group) return { agents: null };
+  const members = await groups.agentsIn(String(q.group));
+  if (members === null) return { error: 503 };
+  return { agents: members };
 }
 
 const app = express();
@@ -107,7 +128,9 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.get("/api/stats", async (req, res) => {
-  const query = buildQuery(req.query);
+  const grp = await resolveGroup(req.query);
+  if (grp.error) return res.status(503).json({ error: "group membership unavailable" });
+  const query = buildQuery(req.query, grp.agents);
   const body = {
     size: 0,
     query,
@@ -202,12 +225,14 @@ function resolveIdFilter(q) {
 
 app.get("/api/alerts", async (req, res) => {
   const size = Math.min(Number(req.query.size || 100), 500);
+  const grp = await resolveGroup(req.query);
+  if (grp.error) return res.status(503).json({ error: "group membership unavailable" });
   const idFilter = resolveIdFilter(req.query);
   // An empty id set means "nothing matches" — never fall through to unfiltered.
   if (idFilter && idFilter.length === 0) {
     return res.json({ total: 0, alerts: [] });
   }
-  const query = buildQuery(req.query);
+  const query = buildQuery(req.query, grp.agents);
   if (idFilter) query.bool.filter.push({ ids: { values: idFilter } });
   const body = {
     size,
@@ -334,6 +359,15 @@ app.post("/api/analysis/run", requireRole("analyst"), async (req, res) => {
 // inspectable rather than a black box).
 app.get("/api/analysis", (_req, res) => {
   res.json({ findings: analysis.all(), config: analysis.config() });
+});
+
+// --- Agent groups (team filtering) -------------------------------------------
+// The team switcher's source of truth: Wazuh agent groups + their agent counts,
+// from the manager API. Empty list when the API is unset/unreachable, so the
+// UI degrades to "All" rather than erroring. This is a filter, not access
+// control — any signed-in user may switch teams.
+app.get("/api/groups", async (_req, res) => {
+  res.json({ groups: await groups.list(), enabled: groups.enabled() });
 });
 
 // --- Audit log (admin only) ---------------------------------------------------

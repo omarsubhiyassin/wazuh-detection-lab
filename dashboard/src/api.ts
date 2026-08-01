@@ -1,6 +1,6 @@
 import type {
   Alert, AiFinding, AiVerdict, AnalysisConfig, AnalysisRun, Coverage, Disposition,
-  AuditEvent, Filters, Metrics, Session, Stats, TriageState, TriageStatus,
+  AuditEvent, Filters, Group, Metrics, Session, Stats, TriageState, TriageStatus,
 } from "./types";
 
 /** Fetch error carrying the HTTP status so callers can react to 401s. */
@@ -19,6 +19,7 @@ function qs(f: Filters): string {
   if (f.search) p.set("search", f.search);
   if (f.triage) p.set("triage", f.triage);
   if (f.ai) p.set("ai", f.ai);
+  if (f.group) p.set("group", f.group);
   return p.toString();
 }
 
@@ -79,6 +80,9 @@ export const getAudit = (limit = 200) =>
 export const getMetrics = () => getJSON<Metrics>(`/api/metrics`);
 
 export const getCoverage = () => getJSON<Coverage>(`/api/coverage`);
+
+export const getGroups = () =>
+  getJSON<{ groups: Group[]; enabled: boolean }>(`/api/groups`);
 
 // --- AI analysis (advisory) ----------------------------------------------
 
